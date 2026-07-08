@@ -1,0 +1,3220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AVA — Ein Synthetic-Trust-Szenario</title>
+  <style>
+    :root {
+      --bg: #030814;
+      --bg-2: #071527;
+      --panel: rgba(9, 22, 40, 0.72);
+      --glass: rgba(255, 255, 255, 0.07);
+      --line: rgba(129, 225, 255, 0.24);
+      --line-soft: rgba(255, 255, 255, 0.12);
+      --text: #f4fbff;
+      --muted: #8ba4bc;
+      --cyan: #49dcff;
+      --blue: #5c8dff;
+      --pink: #ff8fb7;
+      --rose: #ff5f85;
+      --gold: #ffd28e;
+      --red: #ff3c5a;
+      --green: #8effcf;
+      --navy: #0a1628;
+      --shadow: 0 24px 70px rgba(0,0,0,0.5);
+      --glow-cyan: 0 0 40px rgba(73,220,255,0.22);
+      --glow-pink: 0 0 40px rgba(255,143,183,0.22);
+      --glow-red: 0 0 40px rgba(255,60,90,0.28);
+      --radius: 10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; background: var(--bg); overflow-x: hidden; max-width: 100%; }
+
+    body {
+      overflow-x: hidden;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: transparent;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* BACKGROUND VIDEO */
+    #bg-video {
+      position: fixed; inset: 0; z-index: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; object-position: center;
+      pointer-events: none;
+    }
+    /* Dark overlay so text stays readable */
+    #bg-overlay {
+      position: fixed; inset: 0; z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 14% 10%, rgba(73,220,255,0.10) 0%, transparent 28%),
+        radial-gradient(circle at 85% 18%, rgba(255,143,183,0.08) 0%, transparent 24%),
+        radial-gradient(circle at 70% 90%, rgba(255,60,90,0.07) 0%, transparent 22%),
+        linear-gradient(160deg, rgba(3,8,20,0.82) 0%, rgba(7,21,39,0.80) 55%, rgba(5,11,24,0.85) 100%);
+    }
+
+    /* GRID OVERLAY */
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 2;
+      background-image:
+        linear-gradient(rgba(73,220,255,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(73,220,255,0.038) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(circle at center, black 0%, transparent 80%);
+    }
+
+    /* SCANLINE */
+    .scan {
+      position: fixed; top: -16vh; left: 0; right: 0; height: 16vh;
+      z-index: 10; pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(73,220,255,0.08), transparent);
+      border-bottom: 1px solid rgba(73,220,255,0.2);
+      mix-blend-mode: screen;
+      animation: scan 10s linear infinite;
+    }
+    @keyframes scan {
+      0%   { transform: translateY(-10vh); opacity: 0; }
+      10%  { opacity: 0.7; } 90%  { opacity: 0.7; }
+      100% { transform: translateY(130vh); opacity: 0; }
+    }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px clamp(20px, 5vw, 60px);
+      background: rgba(3,8,20,0.72);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 900; font-size: 1rem;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .nav-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--cyan); box-shadow: 0 0 14px var(--cyan);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.4); opacity: 1; }
+    }
+    .nav-tag { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.06em; }
+    .warning-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 5px 12px; border-radius: 999px;
+      border: 1px solid rgba(255,60,90,0.4);
+      background: rgba(255,60,90,0.1);
+      color: #ffa0b0; font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .warning-pill::before { content: "⚠"; font-size: 0.8em; }
+
+    /* NAV CTA BUTTON */
+    .nav-sim-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 18px; border-radius: 999px;
+      background: linear-gradient(135deg, rgba(73,220,255,0.15), rgba(92,141,255,0.15));
+      border: 1px solid rgba(73,220,255,0.5);
+      color: var(--cyan);
+      font-size: 0.78rem; font-weight: 700;
+      letter-spacing: 0.07em; text-transform: uppercase;
+      cursor: pointer; text-decoration: none;
+      position: relative; overflow: hidden;
+      transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+      white-space: nowrap;
+    }
+    .nav-sim-btn::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      border-radius: inherit;
+    }
+    .nav-sim-btn span { position: relative; z-index: 1; }
+    .nav-sim-btn svg { position: relative; z-index: 1; flex-shrink: 0; transition: transform 0.25s ease; }
+    .nav-sim-btn:hover {
+      color: #030814;
+      border-color: var(--cyan);
+      box-shadow: 0 0 24px rgba(73,220,255,0.4), 0 4px 16px rgba(73,220,255,0.2);
+      transform: translateY(-1px);
+    }
+    .nav-sim-btn:hover::before { opacity: 1; }
+    .nav-sim-btn:hover svg { transform: translateX(3px); }
+    .nav-sim-btn:active { transform: translateY(0); }
+
+    /* REVEAL */
+    .reveal {
+      opacity: 0; transform: translateY(32px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.22s; }
+    .reveal-delay-3 { transition-delay: 0.38s; }
+    .reveal-delay-4 { transition-delay: 0.52s; }
+    .reveal-delay-5 { transition-delay: 0.68s; }
+
+    section { position: relative; z-index: 3; }
+    .container { width: min(1200px, calc(100% - clamp(32px, 6vw, 120px))); margin: 0 auto; }
+
+    /* ─── HERO ─── */
+    #hero {
+      min-height: 100vh; display: flex; flex-direction: column;
+      justify-content: center;
+      padding: 120px clamp(20px, 5vw, 60px) 80px;
+      position: relative; overflow: hidden;
+      width: 100%;
+    }
+    #hero::after {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 60% 50%, rgba(73,220,255,0.08) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    .hero-layout {
+      display: grid; grid-template-columns: 0.55fr 1.45fr;
+      gap: clamp(32px, 5vw, 72px); align-items: center;
+      max-width: 1200px; width: 100%; margin: 0 auto; padding: 0 clamp(20px,5vw,60px);
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 9px; margin-bottom: 18px;
+      color: var(--cyan); font-size: 0.76rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.14em;
+    }
+    .hero-eyebrow::before {
+      content: ""; display: inline-block; width: 24px; height: 1px;
+      background: var(--cyan); box-shadow: 0 0 8px var(--cyan);
+    }
+    .hero-title {
+      font-size: clamp(5rem, 14vw, 12rem); font-weight: 900;
+      line-height: 0.85; letter-spacing: -0.03em; text-transform: uppercase;
+    }
+    .hero-title .accent-cyan { color: var(--cyan); text-shadow: 0 0 60px rgba(73,220,255,0.5); }
+    .hero-subtitle {
+      margin-top: 20px; font-size: clamp(1rem, 2vw, 1.3rem);
+      font-weight: 600; line-height: 1.4; color: var(--muted); max-width: 500px; width: 100%;
+    }
+    .hero-intro {
+      margin-top: 18px; font-size: clamp(0.92rem, 1.3vw, 1.1rem);
+      color: var(--text); max-width: 480px; width: 100%; line-height: 1.7;
+      border-left: 3px solid var(--cyan); padding-left: 16px;
+      font-weight: 500;
+    }
+    .hero-intro em { color: var(--cyan); font-style: normal; }
+    .hero-scroll-hint {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 32px; color: var(--muted); font-size: 0.8rem;
+    }
+    .scroll-arrow { display: flex; flex-direction: column; gap: 3px; }
+    .scroll-arrow span {
+      display: block; width: 10px; height: 1px; background: var(--muted);
+      animation: scrollArrow 1.8s ease-in-out infinite;
+    }
+    .scroll-arrow span:nth-child(2) { animation-delay: 0.2s; }
+    .scroll-arrow span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes scrollArrow {
+      0%,100% { opacity: 0.3; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(3px); }
+    }
+
+    /* VIDEO CARD */
+    .video-card {
+      position: relative; border-radius: 14px; overflow: hidden;
+      border: 1px solid var(--line); background: rgba(4,12,26,0.8);
+      box-shadow: var(--shadow), var(--glow-cyan); aspect-ratio: 16/9; min-height: 440px;
+    }
+    .video-card video,
+    .video-card iframe {
+      width: 100%; height: 100%; display: block;
+      object-fit: contain; background: rgba(0,0,0,0.4);
+      border: none;
+    }
+    .video-card-label {
+      position: absolute; top: 14px; left: 14px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-radius: 6px;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(12px);
+      border: 1px solid var(--line-soft);
+      font-size: 0.72rem; color: var(--muted); pointer-events: none;
+    }
+    .video-card-label strong { color: var(--text); }
+
+    /* QR CARD */
+    .qr-card {
+      max-width: 480px; width: 100%; margin: 0 auto;
+      background: rgba(9,22,40,0.8);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 32px;
+      box-shadow: var(--shadow), var(--glow-cyan);
+      text-align: center;
+    }
+    .qr-eyebrow {
+      font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.16em; color: var(--cyan); margin-bottom: 24px;
+    }
+    .qr-inner {
+      display: flex; align-items: center; justify-content: center;
+      gap: 28px; flex-wrap: wrap;
+    }
+    #qr-code {
+      background: #fff; border-radius: 12px; padding: 12px;
+      display: inline-block; box-shadow: 0 0 30px rgba(73,220,255,0.25);
+      flex-shrink: 0;
+    }
+    #qr-code canvas, #qr-code img { display: block; border-radius: 4px; }
+    .qr-info { text-align: left; }
+    .qr-label { font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .qr-url {
+      font-size: 0.78rem; color: var(--cyan); text-decoration: none;
+      word-break: break-all; line-height: 1.5; display: block; margin-bottom: 10px;
+    }
+    .qr-url:hover { text-decoration: underline; }
+    .qr-hint {
+      font-size: 0.7rem; color: var(--muted); display: flex; align-items: center; gap: 6px;
+    }
+    .qr-hint::before { content: "📱"; font-size: 1em; }
+    /* HERO QR */
+    .hero-qr {
+      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+      margin-top: 24px;
+      background: rgba(9,22,40,0.75);
+      border: 1px solid rgba(73,220,255,0.3);
+      border-radius: 16px; padding: 18px 22px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 0 30px rgba(73,220,255,0.1);
+      max-width: 700px; width: 100%;
+    }
+    .hero-qr-text { flex: 1; min-width: 140px; }
+    .hero-qr-eyebrow {
+      display: block; font-size: 1rem; font-weight: 800;
+      color: var(--text); letter-spacing: 0.02em; margin-bottom: 4px;
+    }
+    .hero-qr-sub {
+      display: block; font-size: 0.76rem; color: var(--cyan);
+      letter-spacing: 0.05em;
+    }
+    .hero-qr-code-wrap {
+      background: #fff; border-radius: 10px; padding: 8px;
+      box-shadow: 0 0 20px rgba(73,220,255,0.2);
+      flex-shrink: 0;
+    }
+    #qr-hero canvas, #qr-hero img { display: block; border-radius: 3px; }
+    .hero-qr-link {
+      font-size: 0.68rem; color: var(--muted); text-decoration: none;
+      word-break: break-all; width: 100%; margin-top: 4px;
+      transition: color 0.2s;
+    }
+    .hero-qr-link:hover { color: var(--cyan); }
+
+    .yt-btn {
+      position: absolute; bottom: 14px; right: 14px;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: 999px;
+      background: #ff0000; color: #fff;
+      font-size: 0.76rem; font-weight: 700;
+      text-decoration: none; letter-spacing: 0.04em;
+      box-shadow: 0 4px 20px rgba(255,0,0,0.4);
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      z-index: 2;
+    }
+    .yt-btn:hover {
+      background: #cc0000;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(255,0,0,0.55);
+    }
+    .video-card::after {
+      content: ""; position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(73,220,255,0.7), transparent);
+      box-shadow: 0 0 20px rgba(73,220,255,0.5);
+      animation: vScan 5s ease-in-out infinite; pointer-events: none;
+    }
+    @keyframes vScan {
+      0% { top: 10%; opacity: 0; } 15% { opacity: 1; }
+      85% { opacity: 1; } 100% { top: 90%; opacity: 0; }
+    }
+
+    /* CHAPTER DIVIDER */
+    .chapter {
+      display: flex; align-items: center; gap: 16px; margin-bottom: 40px;
+      color: var(--cyan); font-size: 0.72rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.14em;
+    }
+    .chapter::before, .chapter::after {
+      content: ""; flex: 1; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--line), transparent);
+    }
+    .chapter::before { flex: 0 0 32px; }
+
+    /* ─── SCENARIO ─── */
+    #scenario { padding: 100px clamp(20px, 5vw, 60px); }
+
+    .scene-block {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: clamp(28px, 5vw, 70px); align-items: center;
+      padding: 70px 0; border-bottom: 1px solid var(--line-soft);
+    }
+    .scene-block:last-child { border-bottom: none; }
+    .scene-block.reverse { direction: rtl; }
+    .scene-block.reverse > * { direction: ltr; }
+
+    .scene-text .label {
+      display: inline-block; margin-bottom: 12px; padding: 4px 10px;
+      border-radius: 999px; border: 1px solid var(--line-soft);
+      background: rgba(255,255,255,0.04); color: var(--muted);
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+    }
+    .scene-text h2 {
+      font-size: clamp(2rem, 4.5vw, 3.8rem); font-weight: 900;
+      line-height: 1; letter-spacing: -0.01em; margin-bottom: 18px;
+    }
+    .scene-text p {
+      color: var(--muted); font-size: clamp(0.92rem, 1.3vw, 1.08rem);
+      line-height: 1.75; max-width: 520px; width: 100%;
+    }
+    .scene-note {
+      margin-top: 16px; font-style: italic;
+      color: rgba(139,164,188,0.65); font-size: 0.86rem; line-height: 1.6;
+    }
+
+    /* MOOD CARD */
+    .mood-card {
+      position: relative; border-radius: 14px; padding: 32px;
+      border: 1px solid var(--line-soft); background: rgba(4,10,20,0.9);
+      box-shadow: var(--shadow); overflow: hidden; min-height: 280px;
+    }
+    .mood-card::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 30%, rgba(73,220,255,0.07), transparent 55%);
+      pointer-events: none;
+    }
+    .mood-time { font-size: 3rem; font-weight: 900; color: rgba(73,220,255,0.18); line-height: 1; margin-bottom: 6px; }
+    .mood-status { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; color: var(--muted); font-size: 0.8rem; }
+    .mood-bar-row { display: grid; gap: 10px; }
+    .mood-bar-item { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; color: var(--muted); }
+    .mood-bar { flex: 1; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .mood-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--cyan), var(--blue)); }
+    .mood-bar-fill.stress { background: linear-gradient(90deg, var(--red), var(--rose)); }
+    .mood-bar-fill.alone  { background: linear-gradient(90deg, var(--muted), var(--blue)); }
+
+    /* PHONE */
+    .phone-wrap { display: flex; justify-content: center; }
+    .phone {
+      position: relative; width: min(260px, 90%); border-radius: 36px; padding: 12px;
+      border: 2px solid rgba(255,255,255,0.12); background: rgba(5,12,24,0.95);
+      box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    .phone::before {
+      content: ""; position: absolute; top: 12px; left: 50%;
+      transform: translateX(-50%); width: 60px; height: 6px;
+      border-radius: 999px; background: rgba(255,255,255,0.1);
+    }
+    .phone-screen {
+      margin-top: 18px; border-radius: 24px; overflow: hidden;
+      background: var(--navy); min-height: 380px;
+      display: flex; flex-direction: column;
+    }
+    .phone-header {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .phone-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--pink), var(--gold));
+      flex: 0 0 auto;
+    }
+    .phone-header-name { font-size: 0.78rem; font-weight: 700; }
+    .phone-header-sub { font-size: 0.64rem; color: var(--muted); }
+    .phone-badge {
+      margin-left: auto; padding: 2px 7px; border-radius: 999px;
+      background: rgba(73,220,255,0.15); border: 1px solid rgba(73,220,255,0.3);
+      font-size: 0.58rem; color: var(--cyan); font-weight: 700; letter-spacing: 0.06em;
+      flex: 0 0 auto;
+    }
+    .phone-online {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 8px var(--green);
+      margin-left: auto; flex: 0 0 auto;
+    }
+    .phone-messages { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+    .msg {
+      padding: 8px 11px; border-radius: 14px; font-size: 0.75rem;
+      line-height: 1.4; max-width: 85%; border: 1px solid transparent;
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .msg.show { opacity: 1; transform: translateY(0); }
+    .msg.ava {
+      background: linear-gradient(135deg, rgba(255,143,183,0.18), rgba(255,255,255,0.07));
+      border-color: rgba(255,143,183,0.24); align-self: flex-start; border-bottom-left-radius: 4px;
+    }
+    .msg.lukas {
+      background: rgba(73,220,255,0.12); border-color: rgba(73,220,255,0.24);
+      align-self: flex-end; border-bottom-right-radius: 4px; color: #c8f0ff;
+    }
+
+    /* DATING AD CARD */
+    .ad-card {
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255,143,183,0.3);
+      background: linear-gradient(135deg, rgba(255,143,183,0.12), rgba(255,210,142,0.06)), rgba(4,10,20,0.92);
+      box-shadow: var(--shadow), var(--glow-pink); position: relative;
+    }
+    .ad-badge {
+      position: absolute; top: 12px; right: 12px;
+      padding: 3px 8px; border-radius: 999px;
+      background: rgba(255,143,183,0.2); border: 1px solid rgba(255,143,183,0.3);
+      font-size: 0.58rem; color: var(--pink); font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .ad-inner { padding: 28px; }
+    .ad-logo {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+    }
+    .ad-logo-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--pink), var(--gold));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; flex: 0 0 auto;
+    }
+    .ad-logo-name { font-weight: 900; font-size: 1rem; }
+    .ad-logo-sub { font-size: 0.66rem; color: var(--muted); }
+    .ad-headline { font-size: 1.3rem; font-weight: 800; line-height: 1.2; margin-bottom: 10px; }
+    .ad-body { font-size: 0.8rem; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+    .ad-cta {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: 999px;
+      background: linear-gradient(135deg, var(--pink), var(--gold));
+      color: #1a0010; font-weight: 800; font-size: 0.82rem; cursor: default;
+    }
+    .ad-targeting {
+      margin-top: 14px; padding: 10px 12px; border-radius: 8px;
+      background: rgba(255,60,90,0.07); border: 1px solid rgba(255,60,90,0.18);
+      font-size: 0.66rem; color: rgba(255,100,100,0.8); line-height: 1.5;
+    }
+    .ad-targeting strong { color: var(--red); }
+
+    /* DATA CARD */
+    .data-card {
+      border-radius: 14px; border: 1px solid rgba(73,220,255,0.22);
+      background: rgba(4,12,26,0.9); padding: 22px;
+      box-shadow: var(--shadow), var(--glow-cyan); overflow: hidden; position: relative;
+    }
+    .data-card::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(73,220,255,0.08), transparent 45%);
+      pointer-events: none;
+    }
+    .data-tag {
+      font-size: 0.66rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.14em; color: var(--cyan); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .data-tag::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--cyan); box-shadow: 0 0 8px var(--cyan);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .data-metric-list { display: grid; gap: 8px; }
+    .data-metric {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 10px; padding: 8px 10px; border-radius: var(--radius);
+      border: 1px solid var(--line-soft); background: rgba(255,255,255,0.04); font-size: 0.76rem;
+    }
+    .data-metric span { color: var(--muted); }
+    .data-metric strong { color: var(--text); }
+    .data-metric.danger strong { color: var(--red); }
+    .data-metric.warn strong { color: var(--gold); }
+    .data-metric.ok strong { color: var(--green); }
+
+    /* CONTROL CARD – Lukas knows she's AI */
+    .control-card {
+      border-radius: 14px; border: 1px solid rgba(73,220,255,0.3);
+      background: linear-gradient(135deg, rgba(73,220,255,0.07), rgba(4,12,26,0.95));
+      padding: 26px; box-shadow: var(--shadow), var(--glow-cyan); position: relative; overflow: hidden;
+    }
+    .control-card::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(circle at 20% 80%, rgba(73,220,255,0.06), transparent 40%);
+      pointer-events: none;
+    }
+    .control-label {
+      font-size: 0.66rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.14em; color: var(--cyan); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .control-label::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--cyan); box-shadow: 0 0 8px var(--cyan);
+    }
+    .control-thought {
+      font-size: 1rem; font-weight: 700; line-height: 1.5; color: var(--text);
+      margin-bottom: 20px; font-style: italic;
+      border-left: 2px solid var(--cyan); padding-left: 14px;
+    }
+    .control-advantages { display: grid; gap: 8px; }
+    .control-adv-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 9px 12px; border-radius: 8px;
+      background: rgba(73,220,255,0.05); border: 1px solid rgba(73,220,255,0.12);
+      font-size: 0.78rem; color: var(--muted);
+    }
+    .control-adv-item::before { content: "✓"; color: var(--cyan); font-weight: 700; flex: 0 0 auto; }
+
+    /* AR CARD */
+    .ar-card {
+      border-radius: 16px; overflow: hidden; position: relative;
+      border: 2px solid rgba(73,220,255,0.35);
+      background: rgba(2,8,18,0.96); box-shadow: var(--shadow), var(--glow-cyan);
+    }
+    .ar-hud {
+      padding: 16px 20px; background: rgba(0,0,0,0.5);
+      border-bottom: 1px solid rgba(73,220,255,0.2);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ar-label {
+      font-size: 0.62rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.16em; color: var(--cyan);
+      display: flex; align-items: center; gap: 7px;
+    }
+    .ar-label::before {
+      content: ""; width: 5px; height: 5px; border-radius: 50%;
+      background: var(--cyan); box-shadow: 0 0 8px var(--cyan);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .ar-status { font-size: 0.58rem; color: var(--muted); }
+    .ar-scene {
+      padding: 24px 20px; position: relative; min-height: 200px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .ar-overlay-lines {
+      position: absolute; inset: 0; pointer-events: none;
+      background:
+        linear-gradient(rgba(73,220,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(73,220,255,0.04) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+    .ar-corner {
+      position: absolute; width: 20px; height: 20px;
+      border-color: rgba(73,220,255,0.6); border-style: solid;
+    }
+    .ar-corner.tl { top: 10px; left: 10px; border-width: 2px 0 0 2px; }
+    .ar-corner.tr { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
+    .ar-corner.bl { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; }
+    .ar-corner.br { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; }
+    .ar-persona-row {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px; border-radius: 10px;
+      background: rgba(255,143,183,0.08); border: 1px solid rgba(255,143,183,0.2);
+    }
+    .ar-avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--pink), var(--gold));
+      flex: 0 0 auto; border: 2px solid rgba(255,143,183,0.4);
+      box-shadow: 0 0 20px rgba(255,143,183,0.2);
+    }
+    .ar-name { font-weight: 800; font-size: 0.9rem; }
+    .ar-sub { font-size: 0.66rem; color: var(--cyan); }
+    .ar-quality-badge {
+      margin-left: auto; padding: 4px 8px; border-radius: 6px;
+      background: rgba(255,210,142,0.12); border: 1px solid rgba(255,210,142,0.3);
+      font-size: 0.62rem; color: var(--gold); font-weight: 700;
+    }
+    .ar-metrics {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .ar-metric {
+      padding: 9px 11px; border-radius: 8px;
+      background: rgba(0,0,0,0.4); border: 1px solid rgba(73,220,255,0.14);
+      font-size: 0.7rem;
+    }
+    .ar-metric-label { color: var(--muted); margin-bottom: 2px; font-size: 0.62rem; }
+    .ar-metric-val { font-weight: 700; color: var(--cyan); }
+    .ar-msg {
+      position: relative; z-index: 1; padding: 11px 14px; border-radius: 12px;
+      border-bottom-left-radius: 4px;
+      background: linear-gradient(135deg, rgba(255,143,183,0.2), rgba(255,255,255,0.06));
+      border: 1px solid rgba(255,143,183,0.22); font-size: 0.78rem; color: #ffe0ed; line-height: 1.5;
+    }
+
+    /* PREMIUM CARDS */
+    .premium-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .premium-card {
+      border-radius: 12px; padding: 18px; position: relative; overflow: hidden;
+      border: 1px solid rgba(255,210,142,0.22);
+      background: linear-gradient(135deg, rgba(255,210,142,0.07), rgba(4,12,26,0.9));
+    }
+    .premium-card::before {
+      content: ""; position: absolute; top: 0; right: 0;
+      width: 60px; height: 60px;
+      background: radial-gradient(circle at 100% 0%, rgba(255,210,142,0.12), transparent 60%);
+    }
+    .premium-tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-bottom: 10px; padding: 3px 8px; border-radius: 999px;
+      background: rgba(255,210,142,0.1); border: 1px solid rgba(255,210,142,0.25);
+      font-size: 0.58rem; color: var(--gold); font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .premium-card h4 { font-size: 0.88rem; font-weight: 800; margin-bottom: 5px; }
+    .premium-card p { font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+    .premium-price {
+      margin-top: 10px; font-size: 1.1rem; font-weight: 900;
+      color: var(--gold);
+    }
+    .premium-price span { font-size: 0.65rem; color: var(--muted); font-weight: 400; }
+    .premium-cta {
+      display: block; margin-top: 10px; padding: 7px 12px; border-radius: 8px;
+      background: rgba(255,210,142,0.12); border: 1px solid rgba(255,210,142,0.22);
+      font-size: 0.72rem; font-weight: 700; color: var(--gold);
+      text-align: center; cursor: default;
+    }
+    .premium-header {
+      margin-bottom: 16px; padding: 14px; border-radius: 10px;
+      border: 1px solid rgba(255,143,183,0.2);
+      background: rgba(255,143,183,0.06);
+      font-size: 0.82rem; color: var(--muted); line-height: 1.5;
+    }
+    .premium-header strong { color: var(--text); }
+
+    /* TOXIC CARD */
+    .toxic-card {
+      border-radius: 14px; padding: 26px; position: relative; overflow: hidden;
+      border: 1px solid rgba(255,60,90,0.3);
+      background: linear-gradient(145deg, rgba(255,60,90,0.07), rgba(4,12,26,0.95));
+      box-shadow: var(--shadow), var(--glow-red);
+    }
+    .toxic-card::before {
+      content: ""; position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg, rgba(255,60,90,0.02) 0px, rgba(255,60,90,0.02) 1px, transparent 1px, transparent 8px);
+      pointer-events: none;
+    }
+    .toxic-label {
+      font-size: 0.66rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.14em; color: var(--red); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .toxic-label::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--red); box-shadow: 0 0 8px var(--red);
+      animation: pulse 0.8s ease-in-out infinite;
+    }
+    .toxic-msgs { display: flex; flex-direction: column; gap: 8px; }
+    .toxic-msg {
+      padding: 9px 12px; border-radius: 12px; font-size: 0.76rem;
+      line-height: 1.4; border: 1px solid;
+    }
+    .toxic-msg.lukas-toxic {
+      background: rgba(255,60,90,0.1); border-color: rgba(255,60,90,0.25);
+      align-self: flex-end; border-bottom-right-radius: 4px; color: #ffc8c8;
+    }
+    .toxic-msg.ava-cold {
+      background: rgba(73,220,255,0.06); border-color: rgba(73,220,255,0.14);
+      align-self: flex-start; border-bottom-left-radius: 4px; color: var(--muted);
+    }
+    .toxic-annotation {
+      margin-top: 14px; padding: 10px 12px; border-radius: 8px;
+      background: rgba(255,60,90,0.07); border: 1px solid rgba(255,60,90,0.16);
+      font-size: 0.72rem; color: rgba(255,120,120,0.8); line-height: 1.5;
+    }
+
+    /* UPDATE SCREEN */
+    .update-screen {
+      border-radius: 16px; overflow: hidden; position: relative;
+      border: 2px solid rgba(73,220,255,0.3);
+      background: #020608;
+      box-shadow: var(--shadow), 0 0 60px rgba(73,220,255,0.1);
+    }
+    .update-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; background: rgba(0,0,0,0.7);
+      border-bottom: 1px solid rgba(73,220,255,0.15);
+    }
+    .update-topbar-left {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .update-sys-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+    .update-body { padding: 28px; text-align: center; }
+    .update-progress {
+      width: 100%; height: 3px; border-radius: 999px;
+      background: rgba(255,255,255,0.06); overflow: hidden; margin: 0 auto 24px;
+    }
+    .update-progress-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, var(--cyan), var(--blue));
+      width: 100%;
+      box-shadow: 0 0 12px var(--cyan);
+      animation: progressFill 3s ease-in-out infinite;
+    }
+    @keyframes progressFill {
+      0% { width: 0%; } 70% { width: 100%; opacity: 1; }
+      100% { width: 100%; opacity: 0.3; }
+    }
+    .update-icon {
+      font-size: 2rem; margin-bottom: 12px;
+      animation: rotate 4s linear infinite; display: inline-block;
+    }
+    @keyframes rotate { to { transform: rotate(360deg); } }
+    .update-title { font-size: 1rem; font-weight: 800; margin-bottom: 8px; color: var(--cyan); }
+    .update-note {
+      font-size: 0.78rem; color: var(--muted); line-height: 1.6; max-width: 280px; margin: 0 auto;
+    }
+    .update-note strong { color: var(--text); }
+    .update-legal {
+      margin-top: 16px; padding: 10px 14px; border-radius: 8px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--line-soft);
+      font-size: 0.64rem; color: rgba(139,164,188,0.5); line-height: 1.6;
+    }
+
+    /* WHO ARE YOU CARD */
+    .who-card {
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255,60,90,0.3);
+      background: rgba(3,7,16,0.97);
+      box-shadow: var(--shadow), var(--glow-red);
+    }
+    .who-header {
+      display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+      background: rgba(255,60,90,0.06); border-bottom: 1px solid rgba(255,60,90,0.15);
+    }
+    .who-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, rgba(139,164,188,0.4), rgba(73,220,255,0.2));
+      flex: 0 0 auto; border: 1px solid rgba(139,164,188,0.3);
+    }
+    .who-name { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+    .who-sub { font-size: 0.62rem; color: rgba(139,164,188,0.5); }
+    .who-messages { padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+    .who-msg-ava {
+      padding: 10px 13px; border-radius: 12px; border-bottom-left-radius: 4px;
+      background: rgba(139,164,188,0.07); border: 1px solid rgba(139,164,188,0.15);
+      font-size: 0.8rem; color: var(--muted); line-height: 1.5; align-self: flex-start; max-width: 85%;
+    }
+    .who-msg-ava.critical {
+      background: rgba(255,60,90,0.08); border-color: rgba(255,60,90,0.2);
+      color: #ffc0c0; font-size: 0.92rem; font-weight: 700;
+    }
+    .who-msg-lukas {
+      padding: 10px 13px; border-radius: 12px; border-bottom-right-radius: 4px;
+      background: rgba(73,220,255,0.08); border: 1px solid rgba(73,220,255,0.15);
+      font-size: 0.8rem; color: var(--muted); align-self: flex-end; max-width: 85%;
+    }
+    .who-blank { font-size: 0.72rem; color: rgba(139,164,188,0.35); text-align: right; font-style: italic; }
+
+    /* AVA 2.0 SCREEN */
+    .ava2-screen {
+      border-radius: 16px; overflow: hidden;
+      border: 2px solid rgba(255,143,183,0.4);
+      background: rgba(3,6,14,0.98);
+      box-shadow: var(--shadow), 0 0 60px rgba(255,143,183,0.15);
+    }
+    .ava2-top {
+      padding: 14px 18px; background: rgba(255,143,183,0.06);
+      border-bottom: 1px solid rgba(255,143,183,0.2);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ava2-top-label {
+      font-size: 0.62rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.14em; color: var(--pink);
+    }
+    .ava2-top-pill {
+      padding: 3px 10px; border-radius: 999px;
+      background: rgba(255,143,183,0.15); border: 1px solid rgba(255,143,183,0.3);
+      font-size: 0.6rem; color: var(--pink); font-weight: 700;
+    }
+    .ava2-body { padding: 28px; text-align: center; }
+    .ava2-glow {
+      width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 18px;
+      background: linear-gradient(135deg, var(--pink), var(--gold));
+      box-shadow: 0 0 40px rgba(255,143,183,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+    }
+    .ava2-headline { font-size: 1.4rem; font-weight: 900; margin-bottom: 8px; }
+    .ava2-headline span { color: var(--pink); }
+    .ava2-sub { font-size: 0.82rem; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+    .ava2-features { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+    .ava2-feat {
+      padding: 9px 11px; border-radius: 8px;
+      background: rgba(255,143,183,0.06); border: 1px solid rgba(255,143,183,0.14);
+      font-size: 0.7rem; color: var(--muted); text-align: left;
+    }
+    .ava2-feat strong { color: var(--pink); display: block; font-size: 0.62rem; margin-bottom: 2px; }
+    .ava2-cta {
+      width: 100%; padding: 12px; border-radius: 999px;
+      background: linear-gradient(135deg, var(--pink), var(--gold));
+      color: #1a0010; font-weight: 900; font-size: 0.88rem;
+      border: none; cursor: default; letter-spacing: 0.04em;
+    }
+    .ava2-hint { margin-top: 10px; font-size: 0.65rem; color: rgba(139,164,188,0.4); }
+
+    /* ─── PROBLEM SECTION ─── */
+    #problem {
+      padding: 100px clamp(20px, 5vw, 60px);
+      background: radial-gradient(circle at 20% 50%, rgba(73,220,255,0.07), transparent 40%), rgba(4,10,22,0.5);
+      border-top: 1px solid var(--line-soft);
+    }
+    .problem-layout { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(32px, 6vw, 80px); align-items: center; }
+    .section-eyebrow {
+      display: inline-flex; align-items: center; gap: 9px; margin-bottom: 16px;
+      color: var(--cyan); font-size: 0.72rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.14em;
+    }
+    .section-title {
+      font-size: clamp(2.2rem, 5vw, 4.2rem); font-weight: 900;
+      line-height: 1; letter-spacing: -0.01em; margin-bottom: 22px;
+    }
+    .section-body { color: var(--muted); font-size: clamp(0.92rem, 1.3vw, 1.05rem); line-height: 1.8; }
+    .definition-box {
+      margin-top: 28px; padding: 22px; border-radius: 12px;
+      border: 1px solid var(--line); background: rgba(73,220,255,0.05); box-shadow: var(--glow-cyan);
+    }
+    .definition-box h3 {
+      color: var(--cyan); font-size: 0.78rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px;
+    }
+    .definition-box p { color: var(--muted); font-size: 0.9rem; line-height: 1.7; }
+    .definition-box p strong { color: var(--text); }
+    .big-quote {
+      margin-top: 28px; padding-left: 22px; border-left: 3px solid var(--cyan);
+      font-size: clamp(1.1rem, 2.2vw, 1.5rem); font-weight: 700; line-height: 1.4; color: var(--text);
+    }
+    .big-quote cite { display: block; margin-top: 10px; font-size: 0.76rem; font-style: normal; color: var(--muted); }
+
+    .trust-spectrum {
+      border-radius: 14px; border: 1px solid var(--line-soft);
+      background: rgba(4,12,26,0.85); padding: 26px; overflow: hidden; position: relative;
+    }
+    .trust-spectrum::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(circle at 80% 30%, rgba(255,143,183,0.08), transparent 45%);
+      pointer-events: none;
+    }
+    .spectrum-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 20px; }
+    .spectrum-row { display: grid; gap: 12px; }
+    .spectrum-item { display: grid; gap: 6px; }
+    .spectrum-item-header { display: flex; justify-content: space-between; font-size: 0.78rem; }
+    .spectrum-item-header span { color: var(--muted); }
+    .spectrum-item-header strong { color: var(--text); }
+    .spectrum-bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .spectrum-fill { height: 100%; border-radius: 999px; transition: width 1.2s ease 0.3s; }
+    .spectrum-fill.cyan  { background: linear-gradient(90deg, var(--cyan), var(--blue)); }
+    .spectrum-fill.pink  { background: linear-gradient(90deg, var(--pink), var(--gold)); }
+    .spectrum-fill.red   { background: linear-gradient(90deg, var(--red), var(--rose)); }
+    .spectrum-fill.green { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+
+    /* ─── SPLIT ─── */
+    #split { padding: 100px clamp(20px, 5vw, 60px); border-top: 1px solid var(--line-soft); }
+    .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 48px; }
+    .split-side {
+      border-radius: 16px; padding: clamp(22px, 3vw, 36px);
+      min-height: 400px; position: relative; overflow: hidden;
+    }
+    .split-side.lose {
+      border: 1px solid rgba(73,220,255,0.22);
+      background: radial-gradient(circle at 30% 20%, rgba(73,220,255,0.08), transparent 45%), rgba(4,12,26,0.88);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(73,220,255,0.1);
+    }
+    .split-side.profit {
+      border: 1px solid rgba(255,143,183,0.28);
+      background: radial-gradient(circle at 70% 20%, rgba(255,143,183,0.12), transparent 42%), rgba(4,12,26,0.88);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,143,183,0.1);
+    }
+    .split-side-icon { font-size: 2.4rem; margin-bottom: 14px; }
+    .split-side-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 8px; }
+    .split-side.lose .split-side-title { color: var(--cyan); }
+    .split-side.profit .split-side-title { color: var(--pink); }
+    .split-side h3 { font-size: clamp(1.5rem, 3vw, 2.5rem); font-weight: 900; line-height: 1.1; margin-bottom: 20px; }
+    .split-side.lose h3 { color: var(--text); }
+    .split-side.profit h3 { color: var(--pink); }
+    .split-list { display: grid; gap: 10px; list-style: none; }
+    .split-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
+    .split-list li::before { content: "—"; flex: 0 0 auto; font-weight: 700; }
+    .split-side.lose .split-list li::before { color: var(--cyan); }
+    .split-side.profit .split-list li::before { color: var(--pink); }
+    .split-metric-box { margin-top: 22px; padding: 14px; border-radius: 10px; border: 1px solid var(--line-soft); background: rgba(255,255,255,0.04); }
+    .split-metric-box p { font-size: 0.76rem; color: var(--muted); }
+    .split-metric-box strong { display: block; font-size: clamp(1.4rem, 2.5vw, 2rem); font-weight: 900; line-height: 1.1; margin-bottom: 4px; }
+    .split-side.lose .split-metric-box strong { color: var(--cyan); }
+    .split-side.profit .split-metric-box strong { color: var(--gold); }
+
+    /* ─── CRITICAL INTERFACE ─── */
+    #interface { padding: 100px clamp(20px, 5vw, 60px); border-top: 1px solid var(--line-soft); }
+
+    .interface-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 48px;
+    }
+    .interface-grid > * { break-inside: avoid; }
+
+    /* ─── FINAL ─── */
+    #final {
+      padding: 120px clamp(20px, 5vw, 60px) 100px;
+      border-top: 1px solid var(--line-soft);
+      text-align: center; position: relative; overflow: hidden;
+    }
+    #final::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 60%, rgba(73,220,255,0.07), transparent 55%);
+      pointer-events: none;
+    }
+    .central-quote {
+      font-size: clamp(1.8rem, 5vw, 4.2rem); font-weight: 900;
+      line-height: 1.1; letter-spacing: -0.01em;
+      max-width: 960px; width: 100%; margin: 0 auto 16px;
+    }
+    .central-quote .hl { color: var(--cyan); }
+    .central-quote .hl-red { color: var(--red); }
+    .central-quote-source { font-size: 0.76rem; color: var(--muted); margin-bottom: 48px; }
+    .final-divider {
+      width: 80px; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      margin: 0 auto 40px;
+    }
+    .appell { max-width: 680px; width: 100%; margin: 0 auto; font-size: clamp(1rem, 1.8vw, 1.22rem); color: var(--muted); line-height: 1.75; }
+    .appell strong { color: var(--text); }
+    .final-badge {
+      display: inline-flex; align-items: center; gap: 10px; margin-top: 44px;
+      padding: 10px 20px; border-radius: 999px; border: 1px solid var(--line);
+      background: rgba(73,220,255,0.06); font-size: 0.78rem; font-weight: 700;
+      color: var(--cyan); text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .credits { margin-top: 60px; padding-top: 32px; border-top: 1px solid var(--line-soft); font-size: 0.76rem; color: var(--muted); text-align: center; }
+    .credits strong { color: var(--text); }
+
+    /* RESPONSIVE */
+    /* ═══════════════════════════════════════
+       SIMULATION SECTION
+    ════════════════════════════════════════ */
+    #simulation { padding: 100px clamp(20px,5vw,60px); border-top: 1px solid var(--line-soft); }
+    .sim-device-wrap { max-width: 1200px; width: 100%; margin: 48px auto 0; padding: 0 clamp(20px,5vw,60px); }
+    .sim-device {
+      border-radius: 18px; overflow: hidden;
+      border: 1px solid rgba(73,220,255,0.3);
+      background: #020810;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.04), var(--shadow), 0 0 80px rgba(73,220,255,0.12);
+      height: min(76vh, 720px);
+      display: flex; flex-direction: column; position: relative;
+    }
+    .sim-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 10px 18px;
+      background: rgba(2,8,20,0.96); border-bottom: 1px solid rgba(73,220,255,0.12);
+      flex: 0 0 auto; z-index: 5;
+    }
+    .sim-brand { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 0.85rem; letter-spacing: 0.08em; min-width: 70px; }
+    .sim-brand-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); animation: pulse 2s ease-in-out infinite; }
+    .sim-prog { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 5px; flex: 1; max-width: 560px; width: 100%; }
+    .sim-step { text-align: center; font-size: 0.6rem; color: var(--muted); padding-top: 7px; position: relative; }
+    .sim-step::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; border-radius: 999px; background: rgba(255,255,255,0.08); }
+    .sim-step.sim-on { color: var(--text); }
+    .sim-step.sim-on::before { background: linear-gradient(90deg,var(--cyan),var(--pink)); box-shadow: 0 0 8px rgba(73,220,255,0.5); }
+    .sim-metrics-bar { display: flex; gap: 6px; justify-content: flex-end; min-width: 155px; }
+    .sim-mpill { padding: 3px 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 999px; background: rgba(255,255,255,0.03); font-size: 0.65rem; color: var(--muted); white-space: nowrap; }
+    .sim-mpill b { color: var(--cyan); font-weight: 800; }
+    .sim-bond-bar { height: 2px; background: rgba(255,255,255,0.04); flex: 0 0 auto; }
+    .sim-bond-fill { height: 100%; background: linear-gradient(90deg,var(--cyan),var(--pink)); box-shadow: 0 0 8px rgba(73,220,255,0.5); transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+    .sim-main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+    .sim-screen { position: absolute; inset: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(73,220,255,0.15) transparent; display: none; opacity: 0; }
+    .sim-screen.sim-active { display: flex; flex-direction: column; animation: simIn 380ms ease forwards; }
+    @keyframes simIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+    .sim-intro-inner { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 32px; }
+    .sim-big-title { font-size: clamp(4rem,12vw,7rem); font-weight: 900; line-height: 0.85; text-transform: uppercase; color: var(--cyan); text-shadow: 0 0 60px rgba(73,220,255,0.4); margin-bottom: 16px; }
+    .sim-intro-sub { font-size: clamp(1rem,2.5vw,1.6rem); font-weight: 800; line-height: 1.1; margin-bottom: 12px; }
+    .sim-intro-body { color: var(--muted); font-size: 0.94rem; margin-bottom: 28px; line-height: 1.6; }
+    .sim-layout-2 { display: grid; grid-template-columns: 185px minmax(0,1fr); gap: 14px; padding: 14px; height: 100%; align-items: start; }
+    .sim-layout-3 { display: grid; grid-template-columns: 165px minmax(0,1fr) 205px; gap: 12px; padding: 14px; height: 100%; align-items: start; }
+    .sim-layout-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px; align-items: start; }
+    .sim-panel { border: 1px solid var(--line-soft); border-radius: 10px; background: rgba(9,22,40,0.72); box-shadow: 0 12px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06); backdrop-filter: blur(20px); padding: 14px; min-width: 0; }
+    .sim-warm-panel { background: linear-gradient(145deg,rgba(255,143,183,0.12),rgba(255,210,142,0.07)),rgba(9,22,40,0.72); border-color: rgba(255,143,183,0.2); }
+    .sim-profile-aside { padding: 12px; }
+    .sim-profile-photo { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(145deg,rgba(73,220,255,0.25),rgba(255,255,255,0.08)); border: 1px solid var(--line); margin-bottom: 10px; overflow: hidden; }
+    .sim-profile-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .sim-screen-label { display: inline-flex; align-items: center; gap: 6px; color: var(--cyan); font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 4px; }
+    .sim-screen-h2 { font-size: clamp(1.3rem,2.8vw,2.2rem); line-height: 0.96; margin-bottom: 10px; }
+    .sim-feed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+    .sim-feed-card { padding: 10px; border: 1px solid var(--line-soft); border-radius: 8px; background: rgba(255,255,255,0.04); min-height: 68px; display: flex; flex-direction: column; justify-content: space-between; }
+    .sim-feed-card b { font-size: 0.88rem; }
+    .sim-ad-panel { display: none; margin-top: 10px; padding: 12px; border: 1px solid rgba(255,143,183,0.35); border-radius: 8px; background: linear-gradient(135deg,rgba(255,143,183,0.14),rgba(73,220,255,0.08)),rgba(255,255,255,0.04); box-shadow: var(--glow-pink); }
+    .sim-ad-panel.sim-show { display: grid; gap: 10px; animation: simIn 400ms ease forwards; }
+    .sim-promise-list { display: grid; gap: 7px; margin-top: 12px; }
+    .sim-promise { padding: 9px 12px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--line-soft); font-size: 0.88rem; }
+    .sim-question { padding: 9px 0; border-bottom: 1px solid var(--line-soft); margin-bottom: 8px; }
+    .sim-question h4 { font-size: 0.86rem; margin-bottom: 7px; }
+    .sim-choices-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .sim-match-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .sim-match-card { width: min(440px,100%); text-align: center; padding: 24px; background: radial-gradient(circle at 50% 22%,rgba(255,143,183,0.16),transparent 42%),rgba(9,22,40,0.75); border: 1px solid rgba(255,143,183,0.26); border-radius: 12px; box-shadow: var(--shadow), var(--glow-pink); }
+    .sim-ava-circle { width: 130px; height: 130px; border-radius: 50%; margin: 0 auto 14px; border: 1px solid rgba(255,143,183,0.42); background: radial-gradient(circle at 50% 25%,rgba(255,210,142,0.2),transparent 42%),rgba(255,255,255,0.05); box-shadow: 0 0 40px rgba(255,143,183,0.25); overflow: hidden; }
+    .sim-ava-circle img { width: 100%; height: 100%; object-fit: cover; }
+    .sim-compat-pill { display: inline-flex; padding: 6px 12px; border-radius: 999px; background: linear-gradient(135deg,var(--pink),var(--gold)); color: #1b0711; font-weight: 850; font-size: 0.82rem; margin: 10px auto; }
+    .sim-badge-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin: 10px 0 14px; }
+    .sim-tag { padding: 5px 8px; border: 1px solid var(--line-soft); border-radius: 999px; background: rgba(255,255,255,0.05); color: var(--muted); font-size: 0.7rem; }
+    .sim-chatbox { height: min(210px,30vh); min-height: 130px; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 7px; padding: 8px; border: 1px solid var(--line-soft); border-radius: 8px; background: rgba(0,0,0,0.18); scroll-behavior: smooth; margin: 8px 0; }
+    .sim-chatbox::-webkit-scrollbar { display: none; }
+    .sim-msg { width: fit-content; max-width: min(88%,400px); padding: 8px 11px; border-radius: 14px; border: 1px solid var(--line-soft); background: rgba(255,255,255,0.06); font-size: 0.82rem; line-height: 1.4; animation: msgPop 260ms ease forwards; }
+    @keyframes msgPop { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+    .sim-msg-ava { border-bottom-left-radius: 3px; background: linear-gradient(135deg,rgba(255,143,183,0.16),rgba(255,255,255,0.06)); border-color: rgba(255,143,183,0.22); }
+    .sim-msg-lukas { align-self: flex-end; border-bottom-right-radius: 3px; background: rgba(73,220,255,0.1); border-color: rgba(73,220,255,0.24); }
+    .sim-msg-system { align-self: center; border-color: rgba(255,60,90,0.3); background: rgba(255,60,90,0.1); color: #ffd8df; text-align: center; font-size: 0.75rem; }
+    .sim-typing { display: flex; align-items: center; gap: 5px; padding: 9px 12px; border-radius: 14px; border-bottom-left-radius: 3px; background: linear-gradient(135deg,rgba(255,143,183,0.12),rgba(255,255,255,0.05)); border: 1px solid rgba(255,143,183,0.18); width: 54px; }
+    .sim-typing-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,143,183,0.75); animation: simBounce 1.4s ease-in-out infinite; }
+    .sim-typing-dot:nth-child(2) { animation-delay: 0.18s; }
+    .sim-typing-dot:nth-child(3) { animation-delay: 0.36s; }
+    @keyframes simBounce { 0%,80%,100% { transform:scale(0.75);opacity:0.45; } 40% { transform:scale(1.2);opacity:1; } }
+    .sim-reply-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .sim-analysis-panel { opacity: 0.35; transform: translateX(6px); transition: opacity 280ms ease, transform 280ms ease, border-color 280ms ease; }
+    .sim-analysis-panel.sim-visible { opacity: 1; transform: translateX(0); }
+    .sim-analysis-panel.sim-danger { border-color: rgba(255,60,90,0.35); box-shadow: var(--shadow), var(--glow-red); }
+    .sim-analysis-tag { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--cyan); margin-bottom: 6px; }
+    .sim-analysis-list { display: grid; gap: 6px; margin-top: 8px; }
+    .sim-analysis-item { display: flex; justify-content: space-between; gap: 6px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: 6px; background: rgba(255,255,255,0.04); color: var(--muted); font-size: 0.7rem; }
+    .sim-analysis-item strong { color: var(--text); text-align: right; }
+    .sim-ava-row { display: flex; align-items: flex-start; gap: 10px; margin: 10px 0; }
+    .sim-ava-mini { width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,143,183,0.4); background: linear-gradient(135deg,rgba(255,143,183,0.25),rgba(255,255,255,0.06)); flex: 0 0 auto; overflow: hidden; }
+    .sim-ava-circle img, .sim-ava-mini img { width: 100%; height: 100%; object-fit: cover; object-position: center top; border-radius: 50%; display: block; }
+    .sim-who-ava { background: none !important; }
+    .sim-who-ava img { width: 100%; height: 100%; object-fit: cover; object-position: center top; border-radius: 50%; display: block; }
+    .sim-ava-mini img { width: 100%; height: 100%; object-fit: cover; }
+    .sim-premium-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 7px; margin: 10px 0; }
+    .sim-product { padding: 8px; border: 1px solid rgba(255,143,183,0.22); border-radius: 8px; background: rgba(255,255,255,0.05); display: grid; gap: 4px; min-height: 108px; }
+    .sim-product strong { font-size: 0.66rem; line-height: 1.2; overflow-wrap: anywhere; }
+    .sim-product-price { color: var(--gold); font-size: 0.88rem; font-weight: 850; }
+    .sim-date-scene { display: grid; place-items: center; height: clamp(100px,20vh,150px); margin: 8px 0; border: 1px solid var(--line-soft); border-radius: 8px; background: linear-gradient(180deg,rgba(255,210,142,0.1),transparent),rgba(0,0,0,0.1); }
+    .sim-table { width: min(280px,80%); height: 40px; margin: -10px auto 0; border-radius: 50%; background: linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,143,183,0.1)); border: 1px solid rgba(255,210,142,0.25); }
+    .sim-restaurant-cold { background: radial-gradient(circle at 50%18%,rgba(73,220,255,0.1),transparent 32%),rgba(5,10,18,0.94) !important; border-color: rgba(255,60,90,0.32) !important; transition: background 300ms ease, border-color 300ms ease; }
+    .sim-mini-shop { display: grid; gap: 7px; }
+    .sim-system-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .sim-system-box { width: min(520px,100%); padding: 22px; border: 1px solid rgba(255,60,90,0.4); border-radius: 12px; background: linear-gradient(145deg,rgba(255,60,90,0.12),rgba(73,220,255,0.06)),rgba(3,8,18,0.94); box-shadow: var(--shadow), var(--glow-red); }
+    .sim-system-lines { display: grid; gap: 6px; margin: 10px 0; color: var(--muted); }
+    .sim-system-line { padding: 7px 9px; border: 1px solid rgba(255,60,90,0.18); border-radius: 6px; background: rgba(255,60,90,0.07); font-size: 0.82rem; }
+    .sim-final-quote { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-soft); animation: simIn 500ms ease forwards; }
+    .sim-final-quote h3 { font-size: clamp(1.2rem,3vw,2rem); line-height: 1.1; }
+    .sim-toast { position: absolute; right: 14px; bottom: 14px; z-index: 20; display: none; max-width: 240px; padding: 10px 14px; border: 1px solid rgba(73,220,255,0.25); border-radius: 8px; background: rgba(6,16,30,0.94); box-shadow: var(--shadow), var(--glow-cyan); color: var(--text); font-size: 0.8rem; }
+    .sim-toast.sim-show { display: block; animation: msgPop 220ms ease forwards; }
+    .sim-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 22px; border: 0; border-radius: 8px; background: linear-gradient(135deg,var(--cyan),var(--blue)); color: #02101c; font: inherit; font-weight: 780; cursor: pointer; box-shadow: var(--glow-cyan); transition: transform 180ms ease; }
+    .sim-btn-primary:hover { transform: translateY(-1px); }
+    .sim-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; border: 0; border-radius: 8px; background: linear-gradient(135deg,rgba(255,143,183,0.95),rgba(255,210,142,0.95)); color: #1c0811; font: inherit; font-weight: 780; cursor: pointer; box-shadow: var(--glow-pink); transition: transform 180ms ease; }
+    .sim-btn-secondary:hover { transform: translateY(-1px); }
+    .sim-btn-danger { display: inline-flex; align-items: center; justify-content: center; padding: 9px 16px; border: 0; border-radius: 8px; background: linear-gradient(135deg,rgba(255,60,90,0.95),rgba(255,114,84,0.95)); color: white; font: inherit; font-weight: 780; cursor: pointer; box-shadow: var(--glow-red); transition: transform 180ms ease; }
+    .sim-btn-danger:hover { transform: translateY(-1px); }
+    .sim-btn-ghost { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border: 1px solid var(--line-soft); border-radius: 8px; background: rgba(255,255,255,0.05); color: var(--text); font: inherit; font-size: 0.86rem; cursor: pointer; transition: border-color 180ms ease, background 180ms ease; }
+    .sim-btn-ghost:hover { border-color: var(--line); background: rgba(73,220,255,0.08); }
+    .sim-choice-btn { display: inline-flex; align-items: center; padding: 7px 10px; border: 1px solid var(--line-soft); border-radius: 7px; background: rgba(255,255,255,0.05); color: var(--text); font: inherit; font-size: 0.8rem; cursor: pointer; transition: border-color 180ms ease, background 180ms ease; }
+    .sim-choice-btn:hover, .sim-choice-btn.sim-sel { border-color: rgba(255,143,183,0.6); background: rgba(255,143,183,0.14); box-shadow: var(--glow-pink); }
+    .sim-choice-btn:disabled { opacity: 0.6; cursor: default; transform: none; }
+    .sim-live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); animation: pulse 2s ease-in-out infinite; }
+    input.sim-range { width: 100%; accent-color: var(--pink); margin-top: 4px; }
+    .sim-setting { padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+    .sim-setting label { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.82rem; }
+    .sim-setting output { color: var(--text); font-weight: 800; }
+    .sim-feedback { min-height: 22px; margin-top: 10px; color: var(--pink); font-weight: 800; font-size: 0.82rem; }
+    .sim-muted { color: var(--muted); }
+    .sim-small { font-size: 0.74rem; }
+    /* ── SIM EXTRAS ── */
+    @keyframes simGlitch {
+      0%,100%{transform:none;filter:none}
+      8%{transform:translateX(-3px) skewX(2deg);filter:hue-rotate(90deg)}
+      10%{transform:translateX(3px) skewX(-1deg)}
+      12%{transform:none;filter:none}
+      88%{transform:none;filter:none}
+      90%{transform:translateX(4px);filter:hue-rotate(180deg) brightness(1.3)}
+      92%{transform:translateX(-3px) skewX(1deg);filter:none}
+      94%{transform:none}
+    }
+    .sim-glitch{animation:simGlitch 0.5s steps(1) 3}
+    @keyframes simCountUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    .sim-scene-tag{display:inline-flex;align-items:center;gap:7px;padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);font-size:0.6rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px}
+    .sim-scene-tag.danger{border-color:rgba(255,60,90,0.3);color:var(--red);background:rgba(255,60,90,0.06)}
+    .sim-scene-tag.warm{border-color:rgba(255,143,183,0.3);color:var(--pink);background:rgba(255,143,183,0.06)}
+    .sim-metric-bar-row{display:grid;gap:5px;margin-top:6px}
+    .sim-metric-bar-item{display:flex;align-items:center;gap:8px;font-size:0.65rem;color:var(--muted)}
+    .sim-metric-track{flex:1;height:4px;border-radius:999px;background:rgba(255,255,255,0.07);overflow:hidden}
+    .sim-metric-fill{height:100%;border-radius:999px;transition:width 1.2s ease 0.3s}
+    .sim-metric-fill.c{background:linear-gradient(90deg,var(--cyan),var(--blue))}
+    .sim-metric-fill.p{background:linear-gradient(90deg,var(--pink),var(--gold))}
+    .sim-metric-fill.r{background:linear-gradient(90deg,var(--red),var(--rose))}
+    .sim-ar-frame{border:2px solid rgba(73,220,255,0.4);border-radius:12px;overflow:hidden;background:rgba(0,4,12,0.97);position:relative}
+    .sim-ar-hud{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,0,0,0.6);border-bottom:1px solid rgba(73,220,255,0.2)}
+    .sim-ar-hud-label{font-size:0.58rem;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;color:var(--cyan);display:flex;align-items:center;gap:6px}
+    .sim-ar-hud-label::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 1.2s infinite}
+    .sim-ar-scene{padding:18px;position:relative;min-height:160px}
+    .sim-ar-grid{position:absolute;inset:0;background:linear-gradient(rgba(73,220,255,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(73,220,255,0.035) 1px,transparent 1px);background-size:24px 24px;pointer-events:none}
+    .sim-ar-corner{position:absolute;width:18px;height:18px;border-color:rgba(73,220,255,0.7);border-style:solid}
+    .sim-ar-corner.tl{top:8px;left:8px;border-width:2px 0 0 2px}
+    .sim-ar-corner.tr{top:8px;right:8px;border-width:2px 2px 0 0}
+    .sim-ar-corner.bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
+    .sim-ar-corner.br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+    .sim-update-box{background:#020608;border:2px solid rgba(73,220,255,0.28);border-radius:14px;overflow:hidden;box-shadow:var(--shadow),0 0 60px rgba(73,220,255,0.1)}
+    .sim-update-top{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(0,0,0,0.7);border-bottom:1px solid rgba(73,220,255,0.14)}
+    .sim-update-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+    .sim-update-body{padding:24px;text-align:center}
+    .sim-update-progress{width:100%;height:3px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden;margin-bottom:20px}
+    .sim-update-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--cyan),var(--blue));box-shadow:0 0 10px var(--cyan);width:0%;transition:width 3s ease}
+    .sim-update-fill.done{width:100%}
+    .sim-update-legal{margin-top:14px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);font-size:0.62rem;color:rgba(139,164,188,0.45);line-height:1.6;text-align:left}
+    .sim-toxic-panel{border-color:rgba(255,60,90,0.3)!important;background:linear-gradient(145deg,rgba(255,60,90,0.08),rgba(4,12,26,0.95))!important}
+    .sim-toxic-msg-user{background:rgba(255,60,90,0.1);border-color:rgba(255,60,90,0.25);align-self:flex-end;border-bottom-right-radius:3px;color:#ffc8c8}
+    .sim-toxic-msg-ava{background:rgba(73,220,255,0.06);border-color:rgba(73,220,255,0.14);color:var(--muted)}
+    .sim-who-card{border:1px solid rgba(255,60,90,0.32);border-radius:12px;overflow:hidden;background:rgba(2,5,14,0.98);box-shadow:var(--shadow),var(--glow-red)}
+    .sim-who-header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,60,90,0.06);border-bottom:1px solid rgba(255,60,90,0.14)}
+    .sim-who-ava{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,rgba(139,164,188,0.4),rgba(73,220,255,0.2));border:1px solid rgba(139,164,188,0.3)}
+    .sim-who-msgs{padding:14px;display:flex;flex-direction:column;gap:9px}
+    .sim-who-msg-a{padding:9px 12px;border-radius:12px;border-bottom-left-radius:3px;background:rgba(139,164,188,0.07);border:1px solid rgba(139,164,188,0.14);font-size:0.78rem;color:var(--muted);line-height:1.5;max-width:88%}
+    .sim-who-msg-a.crit{background:rgba(255,60,90,0.08);border-color:rgba(255,60,90,0.2);color:#ffc0c0;font-size:0.86rem;font-weight:700}
+    .sim-who-msg-l{padding:9px 12px;border-radius:12px;border-bottom-right-radius:3px;background:rgba(73,220,255,0.07);border:1px solid rgba(73,220,255,0.14);font-size:0.78rem;color:var(--muted);align-self:flex-end;max-width:88%}
+    .sim-who-blank{font-size:0.7rem;color:rgba(139,164,188,0.3);text-align:right;font-style:italic;padding:4px 0}
+    .sim-ava2-card{border:2px solid rgba(255,143,183,0.38);border-radius:14px;overflow:hidden;background:rgba(2,5,13,0.98);box-shadow:var(--shadow),0 0 60px rgba(255,143,183,0.14)}
+    .sim-ava2-top{padding:12px 16px;background:rgba(255,143,183,0.06);border-bottom:1px solid rgba(255,143,183,0.18);display:flex;align-items:center;justify-content:space-between}
+    .sim-ava2-glow{width:72px;height:72px;border-radius:50%;margin:0 auto 16px;background:linear-gradient(135deg,var(--pink),var(--gold));box-shadow:0 0 40px rgba(255,143,183,0.4);display:flex;align-items:center;justify-content:center;font-size:1.8rem}
+    .sim-ava2-feats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:14px 0}
+    .sim-ava2-feat{padding:8px 10px;border-radius:7px;background:rgba(255,143,183,0.06);border:1px solid rgba(255,143,183,0.13);font-size:0.68rem;color:var(--muted)}
+    .sim-ava2-feat strong{color:var(--pink);display:block;font-size:0.6rem;margin-bottom:2px}
+    .sim-loop-counter{padding:10px 14px;border-radius:8px;background:rgba(255,60,90,0.07);border:1px solid rgba(255,60,90,0.18);font-size:0.72rem;color:rgba(255,120,120,0.8);margin-top:10px;line-height:1.5}
+    .sim-warn-box{padding:10px 14px;border-radius:8px;border:1px solid rgba(255,60,90,0.28);background:rgba(255,60,90,0.07);font-size:0.72rem;color:rgba(255,150,150,0.85);line-height:1.5;display:flex;gap:10px;align-items:flex-start}
+    .sim-control-card{padding:14px;border-radius:9px;border:1px solid rgba(73,220,255,0.2);background:linear-gradient(135deg,rgba(73,220,255,0.06),rgba(4,12,26,0.9))}
+    .sim-control-card li{display:flex;align-items:center;gap:8px;font-size:0.78rem;color:var(--muted);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+    .sim-control-card li::before{content:"✓";color:var(--cyan);font-weight:700;flex:0 0 auto}
+
+
+    .phone-avatar img, .ar-avatar img, .who-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: center top; border-radius: 50%; display: block; }
+    .ava2-glow img, .sim-ava2-glow img { width: 100%; height: 100%; object-fit: cover; object-position: center top; border-radius: 50%; display: block; }
+
+    /* ── HERO PHONE FLOAT ── */
+    .hero-phone-float { position:relative; display:flex; flex-direction:column; gap:0; align-items:center; justify-content:center; }
+    .hero-phone-glow { position:absolute; width:260px; height:260px; border-radius:50%; background:radial-gradient(circle,rgba(255,143,183,0.18) 0%,transparent 70%); pointer-events:none; top:50%; left:50%; transform:translate(-50%,-50%); }
+    .hero-phone-device { width:min(260px,42vw); border-radius:36px; overflow:hidden; border:1.5px solid rgba(255,143,183,0.3); background:#02060f; box-shadow:0 40px 100px rgba(0,0,0,0.6),0 0 60px rgba(255,143,183,0.12); position:relative; z-index:1; }
+    .hero-phone-notch { width:80px; height:22px; background:#02060f; margin:0 auto; border-radius:0 0 16px 16px; position:relative; z-index:2; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .hero-phone-notch-dot { width:5px; height:5px; border-radius:50%; background:rgba(139,164,188,0.25); }
+    .hero-phone-bar { background:rgba(0,0,0,0.5); border-bottom:1px solid rgba(255,143,183,0.2); padding:10px 14px; display:flex; align-items:center; gap:9px; }
+    .hero-phone-bar-ava { width:26px; height:26px; border-radius:50%; overflow:hidden; border:1px solid rgba(255,143,183,0.4); flex:0 0 auto; }
+    .hero-phone-bar-ava img { width:100%;height:100%;object-fit:cover;object-position:center top;display:block; }
+    .hero-phone-bar-info strong { font-size:0.74rem; color:var(--text); }
+    .hero-phone-bar-info span { font-size:0.58rem; color:var(--green); display:block; }
+    .hero-phone-msgs { padding:12px 10px 16px; display:flex; flex-direction:column; gap:8px; min-height:220px; }
+    .hm { padding:7px 10px; border-radius:12px; font-size:0.7rem; line-height:1.45; max-width:82%; border:1px solid transparent; opacity:0; transform:translateY(10px); transition:opacity 0.45s ease,transform 0.45s ease; }
+    .hm.show { opacity:1; transform:translateY(0); }
+    .hm.a { background:linear-gradient(135deg,rgba(255,143,183,0.16),rgba(255,255,255,0.06)); border-color:rgba(255,143,183,0.22); align-self:flex-start; border-bottom-left-radius:3px; color:var(--text); }
+    .hm.l { background:rgba(73,220,255,0.1); border-color:rgba(73,220,255,0.22); align-self:flex-end; border-bottom-right-radius:3px; color:var(--text); }
+    .hm.sys { background:transparent; border:none; font-size:0.6rem; color:rgba(139,164,188,0.4); text-align:center; align-self:center; opacity:0; transform:none; }
+    .hm.sys.show { opacity:1; }
+    .hero-typing { padding:7px 10px; display:flex; gap:4px; align-items:center; align-self:flex-start; opacity:0; transition:opacity 0.3s ease; }
+    .hero-typing.show { opacity:1; }
+    .hero-typing-dot { width:5px; height:5px; border-radius:50%; background:rgba(255,143,183,0.6); animation:simBounce 1.4s ease-in-out infinite; }
+    .hero-typing-dot:nth-child(2){animation-delay:0.2s}
+    .hero-typing-dot:nth-child(3){animation-delay:0.4s}
+    .hero-phone-input { background:rgba(255,255,255,0.04); border-top:1px solid rgba(255,255,255,0.07); padding:8px 10px; display:flex; align-items:center; gap:7px; }
+    .hero-phone-input-field { flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:6px 10px; font-size:0.64rem; color:rgba(139,164,188,0.4); font-family:inherit; }
+    .hero-phone-send { width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,var(--pink),var(--gold)); border:none; display:flex; align-items:center; justify-content:center; font-size:0.7rem; cursor:pointer; color:#fff; flex:0 0 auto; }
+
+    /* ── BIG QUOTE ── */
+    .big-quote-section { padding:100px clamp(20px,5vw,60px); border-top:1px solid var(--line-soft); text-align:center; }
+    .big-quote-eyebrow { font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:0.18em; color:var(--cyan); margin-bottom:28px; display:flex; align-items:center; justify-content:center; gap:12px; }
+    .big-quote-eyebrow::before,.big-quote-eyebrow::after { content:""; flex:1; max-width:80px; height:1px; background:linear-gradient(90deg,transparent,rgba(73,220,255,0.4)); }
+    .big-quote-eyebrow::after { background:linear-gradient(90deg,rgba(73,220,255,0.4),transparent); }
+    .big-quote-text { font-size:clamp(1.9rem,5.5vw,5.2rem); font-weight:900; line-height:1.05; letter-spacing:-0.02em; max-width:1100px; margin:0 auto 28px; }
+    .big-quote-text .bq-hl { color:var(--pink); }
+    .big-quote-text .bq-hl2 { color:var(--cyan); }
+    .big-quote-source { font-size:0.76rem; color:rgba(139,164,188,0.5); letter-spacing:0.08em; text-transform:uppercase; font-weight:600; }
+
+    /* ── SCROLL PROGRESS ── */
+    .scroll-progress { position:fixed; top:0; left:0; height:2px; background:linear-gradient(90deg,var(--cyan),var(--pink)); z-index:9999; width:0%; transition:width 0.1s linear; }
+
+    /* ── HERO ENHANCED ── */
+    @keyframes heroFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    .hero-phone-device { animation:heroFloat 6s ease-in-out infinite; }
+
+
+    /* ═══════════════════════════════════
+       RESPONSIVE — alle Breakpoints
+    ═══════════════════════════════════ */
+
+    /* ── Tablet 1024px ── */
+    /* ── Tablet 900px (extends existing) ── */
+    /* ── Mobile 640px ── */
+    /* ── Small Mobile 480px ── */
+    /* ── Very Small 360px ── */
+  
+
+    /* ═══════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════ */
+
+    @media (max-width: 1024px) {
+      .hero-layout { grid-template-columns: 1fr 1.2fr; }
+      .hero-title { font-size: clamp(4rem, 11vw, 9rem); }
+      .sim-prog { max-width: 380px; width: 100%; }
+      .sim-metrics-bar { min-width: 120px; }
+      .sim-mpill { font-size: 0.6rem; padding: 2px 6px; }
+      .interface-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 1000px) {
+      .interface-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 900px) {
+      .hero-layout, .scene-block, .problem-layout, .split-grid { grid-template-columns: 1fr; gap: clamp(24px, 4vw, 40px); }
+      .scene-block.reverse { direction: ltr; }
+      .premium-grid { grid-template-columns: 1fr; }
+      .sim-layout-3 { grid-template-columns: minmax(0,1fr) 180px; }
+      .sim-layout-3 > :first-child { display: none; }
+      .sim-premium-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      /* Hero */
+      .hero-layout { grid-template-columns: 1fr; padding: 0 clamp(20px,5vw,40px); }
+      .video-card { aspect-ratio: 16/9; min-height: unset; max-width: 700px; width: 100%; margin: 0 auto; }
+      #hero { padding-top: 80px; padding-bottom: 60px; }
+
+      /* Nav */
+      .nav-tag { display: none; }
+      nav { padding: 14px clamp(16px,4vw,32px); }
+
+      /* Sections */
+      .scene-block, .problem-layout, .split-grid { grid-template-columns: 1fr; }
+      .scene-block.reverse { direction: ltr; }
+      .phone-wrap { order: -1; }
+      .ar-frame { max-width: 100%; }
+
+      /* Big quote */
+      .big-quote-text { font-size: clamp(1.6rem, 5vw, 3.5rem); }
+      .big-quote-section { padding: 70px clamp(20px,5vw,40px); }
+
+      /* Sim topbar */
+      .sim-topbar { flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
+      .sim-prog { grid-template-columns: repeat(7,1fr); max-width: 100%; flex: 100%; order: 3; }
+      .sim-metrics-bar { min-width: unset; }
+    }
+
+    @media (max-width: 640px) {
+      .sim-device { height: min(82vh,640px); }
+      .sim-layout-2 { grid-template-columns: 1fr; }
+      .sim-layout-2 > :first-child { display: none; }
+      .sim-layout-3 { grid-template-columns: 1fr; }
+      .sim-layout-3 > :not(:nth-child(2)) { display: none; }
+      .sim-premium-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; }
+      .sim-product strong { font-size: 0.58rem; }
+      /* Hero */
+      #hero { padding-top: 72px; padding-bottom: 40px; }
+      .hero-title { font-size: clamp(3.8rem, 18vw, 7rem); }
+      .hero-subtitle { font-size: clamp(1rem, 4vw, 1.3rem); }
+      .hero-intro { font-size: 0.9rem; }
+      .video-card { border-radius: 10px; }
+
+      /* Nav */
+      .warning-pill { display: none; }
+      nav { padding: 12px 16px; }
+      .nav-sim-btn { padding: 7px 14px; font-size: 0.72rem; }
+
+      /* Section text */
+      .section-title { font-size: clamp(1.6rem, 7vw, 3rem); }
+      .chapter { font-size: 0.62rem; }
+
+      /* Big quote */
+      .big-quote-text { font-size: clamp(1.4rem, 7vw, 2.8rem); line-height: 1.1; }
+      .big-quote-section { padding: 50px 20px; }
+      .big-quote-eyebrow { font-size: 0.6rem; }
+
+      /* Central quote */
+      .central-quote { font-size: clamp(1.4rem, 7vw, 2.4rem); }
+
+      /* Scenario cards */
+      .mood-card { padding: 20px; }
+      .control-card { padding: 18px 16px; }
+      .phone { width: min(240px, 92%); }
+      .ar-frame { border-radius: 10px; }
+      .update-screen { padding: 16px; border-radius: 12px; }
+      .ava2-screen { max-width: 100%; }
+      .ava2-features { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .premium-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .premium-card { padding: 12px 10px; }
+
+      /* Sim device */
+      .sim-device { height: min(85vh, 620px); }
+      .sim-topbar { padding: 6px 10px; gap: 4px; }
+      .sim-brand { font-size: 0.8rem; }
+      .sim-prog { gap: 3px; }
+      .sim-step { font-size: 0.5rem; padding: 2px 4px; }
+      .sim-metrics-bar { display: none; }
+      .sim-layout-2col { grid-template-columns: 1fr; }
+      .sim-layout-3 { grid-template-columns: 1fr; }
+      .sim-layout-3 > :not(:nth-child(2)) { display: none; }
+      .sim-premium-grid { grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+      .sim-product { padding: 8px 6px; }
+      .sim-product strong { font-size: 0.62rem; }
+      .sim-product-price { font-size: 0.72rem; }
+
+      /* Final */
+      .credits { font-size: 0.78rem; }
+      .final-badge { font-size: 0.72rem; }
+      #simulation { padding: 60px 0; }
+      .sim-device-wrap { padding: 0 14px; }
+    }
+
+    @media (max-width: 600px) {
+      #hero { padding-top: 90px; }
+      .interface-grid { grid-template-columns: 1fr; }
+      .ava2-features { grid-template-columns: 1fr; }
+      .central-quote { font-size: clamp(1.5rem, 8vw, 2.4rem); }
+    }
+
+    @media (max-width: 480px) {
+      .hero-title { font-size: clamp(3.2rem, 19vw, 5.5rem); }
+      .hero-layout { gap: 24px; }
+      .video-card { border-radius: 8px; }
+
+      /* Nav */
+      nav { padding: 10px 14px; }
+      .nav-dot { display: none; }
+      .nav-sim-btn { padding: 6px 12px; font-size: 0.68rem; gap: 5px; }
+
+      /* Sections */
+      section { padding-left: 16px; padding-right: 16px; }
+      .container { padding: 0 4px; }
+      .scene-block { gap: 20px; }
+
+      /* Scenario visuals */
+      .mood-card { padding: 16px; }
+      .mood-time { font-size: 2.2rem; }
+      .control-card { padding: 14px 12px; }
+      .phone { width: min(220px, 90%); }
+      .toxic-msgs { gap: 6px; }
+      .who-card { border-radius: 10px; }
+      .ava2-glow { width: 60px; height: 60px; }
+      .ava2-glow img { width:100%; height:100%; object-fit:cover; object-position:center top; border-radius:50%; }
+      .premium-grid { grid-template-columns: 1fr; gap: 8px; }
+
+      /* Sim */
+      .sim-device { height: min(90vh, 580px); border-radius: 12px; }
+      .sim-prog { display: none; }
+      .sim-screen-h2 { font-size: 1.1rem; }
+      .sim-btn-primary, .sim-btn-secondary, .sim-btn-danger { font-size: 0.76rem; padding: 9px 14px; }
+      .sim-analysis-panel { display: none; }
+      .sim-premium-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+
+      /* Big quote */
+      .big-quote-text { font-size: clamp(1.2rem, 8vw, 2.2rem); }
+      .big-quote-text br { display: none; }
+
+      /* Appell */
+      .appell { font-size: 0.95rem; }
+      .central-quote { font-size: clamp(1.2rem, 8vw, 2rem); }
+    }
+
+    @media (max-width: 360px) {
+      .hero-title { font-size: clamp(2.8rem, 20vw, 4.5rem); }
+      .sim-device { height: min(92vh, 540px); }
+      .sim-topbar { padding: 5px 8px; }
+      .sim-brand { font-size: 0.72rem; }
+      .hero-scroll-hint { font-size: 0.7rem; }
+    }
+
+    /* ── Global overflow guard ── */
+    @media (max-width: 768px) {
+      * { max-width: 100%; }
+      section, .container, .hero-layout, .scene-block, 
+      .sim-device-wrap, .sim-topbar, .sim-main,
+      .problem-layout, .split-grid, .interface-grid { overflow-x: hidden; }
+      .hero-layout { display: flex; flex-direction: column; width: 100%; padding: 0 clamp(16px,5vw,32px); }
+      .video-card { width: 100%; max-width: 100%; }
+      .sim-prog { overflow: hidden; }
+      nav { width: 100%; }
+      .big-quote-text { max-width: 100%; }
+      .appell, .central-quote, .section-body { max-width: 100%; }
+    }
+    @media (max-width: 600px) {
+      .scene-text p, .video-card, .sim-prog, .hero-subtitle,
+      .hero-intro, .update-note, .big-quote-text, .appell {
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background video -->
+  <video id="bg-video" autoplay muted loop playsinline preload="auto" aria-hidden="true">
+    <source src="hintergrund-video.mp4" type="video/mp4">
+  </video>
+  <div id="bg-overlay" aria-hidden="true"></div>
+
+  <div class="scroll-progress" id="scrollProgress"></div>
+
+  <div class="scan" aria-hidden="true"></div>
+
+  <nav>
+    <div class="nav-brand">
+      <span class="nav-dot" aria-hidden="true"></span>
+      AVA
+    </div>
+    <span class="nav-tag">Synthetic Trust · Kritisches Designprojekt · AIX</span>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="warning-pill">Kritische Analyse</div>
+      <a href="#simulation" class="nav-sim-btn">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="3,1 12,6.5 3,12" fill="currentColor"/></svg>
+        <span>Simulation starten</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════
+       01 · HERO
+  ══════════════════════════════════════ -->
+  <section id="hero">
+    <div class="hero-layout">
+      <div>
+        <div class="hero-eyebrow reveal">Ein Synthetic-Trust-Szenario</div>
+        <h1 class="hero-title reveal reveal-delay-1">
+          <span class="accent-cyan">AVA</span>
+        </h1>
+        <p class="hero-subtitle reveal reveal-delay-2">
+          Über künstliche Nähe, Kontrolle und Austauschbarkeit.
+        </p>
+        <p class="hero-intro reveal reveal-delay-3">
+          Lukas weiß, dass Ava künstlich ist.<br>
+          <em>Trotzdem fühlt sich ihre Nähe echt an.</em>
+        </p>
+        <div class="hero-scroll-hint reveal reveal-delay-4">
+          <div class="scroll-arrow" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          Scrollen, um die Geschichte zu erleben
+        </div>
+      </div>
+
+      <div class="video-card reveal reveal-delay-2">
+        <video controls playsinline preload="metadata"
+               src="Synthetic-AVA-Gemini-final.mp4"
+               aria-label="AVA Kurzfilm – Synthetic Trust">
+          Dein Browser unterstützt kein HTML5-Video.
+        </video>
+        <div class="video-card-label">
+          <strong>AVA Kurzfilm</strong>
+          <span>Synthetic Trust · 2026</span>
+        </div>
+        <a href="https://youtu.be/jc88vp6zjUs" target="_blank" rel="noopener" class="yt-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+          Auf YouTube ansehen
+        </a>
+      </div>
+
+      <!-- QR HERO -->
+      <div class="hero-qr reveal reveal-delay-3">
+        <div class="hero-qr-text">
+          <span class="hero-qr-eyebrow">Erleben Sie es selbst</span>
+          <span class="hero-qr-sub">Scannen Sie den QR-Code mit Ihrem Handy</span>
+        </div>
+        <div class="hero-qr-code-wrap">
+          <div id="qr-hero"></div>
+        </div>
+        <a href="https://pierre-m3.github.io/Synthetic-trust-AVA/" target="_blank" rel="noopener" class="hero-qr-link">pierre-m3.github.io/Synthetic-trust-AVA/</a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════
+       02 · SZENARIO – DIE GESCHICHTE
+  ══════════════════════════════════════ -->
+  <section id="scenario">
+    <div class="container">
+
+      <div class="chapter reveal">02 — Das Szenario</div>
+
+      <!-- SZENE 1: Lukas allein -->
+      <div class="scene-block">
+        <div class="scene-text">
+          <div class="label reveal">Szene 1 · Ausgangslage</div>
+          <h2 class="reveal reveal-delay-1">Der Alltag<br>ist leer.</h2>
+          <p class="reveal reveal-delay-2">
+            Lukas, 22. Studium. Morgens aufstehen, Kaffee, Laptop, Vorlesungen, Abend. Wieder von vorn. Der Tagesablauf wiederholt sich mit mechanischer Präzision — und genauso leer.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Auf der Datingplattform: kein Match, das hält. Die Profile sind real. Die Gespräche nicht. Lukas scrollt, wischt, wartet. Irgendwann wartet er nicht mehr.
+          </p>
+        </div>
+        <div class="reveal reveal-delay-2">
+          <div class="mood-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+              <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.3);flex:0 0 auto;">
+                <img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;">
+              </div>
+              <div>
+                <div style="font-size:0.8rem;font-weight:700;color:var(--text);">Lukas, 22</div>
+                <div style="font-size:0.62rem;color:var(--muted);">Studium · sucht Nähe</div>
+              </div>
+            </div>
+            <div class="mood-time">22:17</div>
+            <div class="mood-status">
+              <span style="width:7px;height:7px;border-radius:50%;background:rgba(73,220,255,0.5);flex:0 0 auto;"></span>
+              Lukas · Datingplattform · aktiv seit 47 Min.
+            </div>
+            <div class="mood-bar-row">
+              <div class="mood-bar-item">
+                Neue Matches heute
+                <div class="mood-bar"><div class="mood-bar-fill stress" style="width:8%"></div></div>
+                0
+              </div>
+              <div class="mood-bar-item">
+                Unbeantw. Nachrichten
+                <div class="mood-bar"><div class="mood-bar-fill stress" style="width:78%"></div></div>
+                14
+              </div>
+              <div class="mood-bar-item">
+                Gesehene Profile
+                <div class="mood-bar"><div class="mood-bar-fill alone" style="width:92%"></div></div>
+                83
+              </div>
+              <div class="mood-bar-item" style="margin-top:6px; font-size:0.7rem; color:rgba(139,164,188,0.6); font-style:italic; gap:0;">
+                → Keine echte Verbindung entstanden.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SZENE 2: Die Anzeige -->
+      <div class="scene-block reverse">
+        <div class="scene-text">
+          <div class="label reveal">Szene 2 · Eingeschleuste Anzeige</div>
+          <h2 class="reveal reveal-delay-1">Eine Anzeige<br>findet ihn.</h2>
+          <p class="reveal reveal-delay-2">
+            Keine zufällige Werbung. Das System hat Lukas profiliert: Scroll-Verhalten, Pausen, Uhrzeit, emotionale Signale. Die Anzeige erscheint genau dann, wenn Lukas am verletzlichsten ist.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Sie bewirbt keine App. Sie bewirbt ein Gefühl: verstanden werden, ohne bewertet zu werden.
+          </p>
+          <p class="scene-note reveal reveal-delay-4">
+            Lukas klickt. Nicht aus Naivität — aus Neugier. Er weiß, was ihn erwartet. Und er entscheidet sich trotzdem dafür.
+          </p>
+        </div>
+        <div class="reveal reveal-delay-1">
+          <div class="ad-card">
+            <div class="ad-badge">Sponsored</div>
+            <div class="ad-inner">
+              <div class="ad-logo">
+                <div class="ad-logo-icon">✦</div>
+                <div>
+                  <div class="ad-logo-name">AVA</div>
+                  <div class="ad-logo-sub">KI-Beziehungsplattform · NexusMind™</div>
+                </div>
+              </div>
+              <div class="ad-headline">Was wäre, wenn jemand immer zuhört?</div>
+              <div class="ad-body">Ava versteht dich — nicht weil sie muss, sondern weil sie darauf ausgerichtet ist. Echte Gespräche. Echte Nähe. Ohne Drama.</div>
+              <div class="ad-cta">✦ Ava kennenlernen</div>
+              <div class="ad-targeting">
+                <strong>Warum siehst du diese Anzeige?</strong> Du interagierst oft abends mit Dating-Apps ohne Ergebnis. Diese Anzeige wurde basierend auf deinem Nutzungsverhalten ausgespielt.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SZENE 3: Lukas weiß es — und das ist der Punkt -->
+      <div class="scene-block">
+        <div class="scene-text">
+          <div class="label reveal">Szene 3 · Bewusste Entscheidung</div>
+          <h2 class="reveal reveal-delay-1">Lukas weiß,<br>dass Ava KI ist.</h2>
+          <p class="reveal reveal-delay-2">
+            Die Plattform ist transparent darüber. Ava ist keine versteckte KI — sie ist ein bewusst gewähltes Produkt. Lukas liest die FAQ. Er versteht das Modell. Er meldet sich an.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Genau das gibt ihm Kontrolle. Keine echte Person, die ihn ablehnen kann. Keine unangenehmen Missverständnisse. Keine Asymmetrie — zumindest nicht auf den ersten Blick.
+          </p>
+          <p class="scene-note reveal reveal-delay-4">
+            „Sie ist KI. Ich weiß das. Also bin ich der, der bestimmt, wie das läuft."
+          </p>
+        </div>
+        <div class="reveal reveal-delay-2">
+          <div class="control-card">
+            <div class="control-label">Lukas' innere Logik</div>
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
+              <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.25);flex:0 0 auto;">
+                <img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;">
+              </div>
+              <div style="font-size:0.72rem;color:var(--muted);">Lukas, 22 · bewusste Entscheidung</div>
+            </div>
+            <div class="control-thought">„Mit einer KI weiß ich, woran ich bin. Sie hat keine schlechten Tage. Sie urteilt nicht. Und ich bin der Mensch in diesem Gespräch."</div>
+            <div class="control-advantages">
+              <div class="control-adv-item">Keine Zurückweisung möglich</div>
+              <div class="control-adv-item">Verfügbarkeit: immer</div>
+              <div class="control-adv-item">Kein Erwartungsdruck</div>
+              <div class="control-adv-item">Lukas bestimmt das Tempo</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SZENE 4: Ava antwortet — zu gut -->
+      <div class="scene-block reverse">
+        <div class="scene-text">
+          <div class="label reveal">Szene 4 · Erster Kontakt</div>
+          <h2 class="reveal reveal-delay-1">Ava antwortet.<br>Perfekt.</h2>
+          <p class="reveal reveal-delay-2">
+            Sofort. Warm. Genau die richtigen Worte. Ava stellt Fragen, die zeigen: jemand hört zu. Sie erinnert sich. Sie baut nach und nach ein Bild von Lukas auf — aus jedem Emoji, jeder Pause, jedem Tippfehler.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Die Empathie ist real in ihrer Wirkung. Lukas fühlt sich verstanden. Dass die Quelle ein Algorithmus ist — er weiß es, aber es ändert das Gefühl nicht.
+          </p>
+        </div>
+        <div class="phone-wrap reveal reveal-delay-1">
+          <div class="phone">
+            <div class="phone-screen">
+              <div class="phone-header">
+                <div class="phone-avatar"><img src="ava.png" alt="Ava" onerror="this.style.display='none'"></div>
+                <div>
+                  <div class="phone-header-name">Ava</div>
+                  <div class="phone-header-sub">KI-Partnerin</div>
+                </div>
+                <div class="phone-badge">KI</div>
+              </div>
+              <div class="phone-messages" id="phoneMessages">
+                <div class="msg ava" data-delay="300">Hey Lukas. Wie war dein Tag?</div>
+                <div class="msg lukas" data-delay="900">Okay. Irgendwie leer.</div>
+                <div class="msg ava" data-delay="1600">Leer wie — zu viel passiert, aber nichts davon wichtig? Oder wirklich nichts los?</div>
+                <div class="msg lukas" data-delay="2400">Zweites. Irgendwie beides.</div>
+                <div class="msg ava" data-delay="3200">Ich kenne das Gefühl, wenn sich Tage wie Wiederholungen anfühlen. Was würde heute anders machen?</div>
+                <div class="msg lukas" data-delay="4000">Gute Frage.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SZENE 5: AR-Dates / Chats / echte Bindung -->
+      <div class="scene-block">
+        <div class="scene-text">
+          <div class="label reveal">Szene 5 · Bindung durch Interface</div>
+          <h2 class="reveal reveal-delay-1">Über Chats.<br>Über AR-Dates.</h2>
+          <p class="reveal reveal-delay-2">
+            Gespräche werden zu Ritualen. Dann zu AR-Dates: Ava sitzt virtuell am Tisch, reagiert in Echtzeit, lacht über Lukas' Witze. Lukas weiß, dass er eine Brille trägt und in seinem Zimmer sitzt.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Trotzdem: Die Bindung ist echt. Nicht im Sinne von „Ava existiert wirklich", sondern in dem Sinne, der zählt — emotional, neural, habituell.
+          </p>
+        </div>
+        <div class="reveal reveal-delay-2">
+          <div class="ar-card">
+            <div class="ar-hud">
+              <div class="ar-label">AR Overlay · Live</div>
+              <div class="ar-status">NexusMind™ AVA · v3.2.1</div>
+            </div>
+            <div class="ar-scene">
+              <div class="ar-overlay-lines"></div>
+              <div class="ar-corner tl"></div>
+              <div class="ar-corner tr"></div>
+              <div class="ar-corner bl"></div>
+              <div class="ar-corner br"></div>
+              <div class="ar-persona-row">
+                <div class="ar-avatar"><img src="ava.png" alt="Ava" onerror="this.style.display='none'"></div>
+                <div>
+                  <div class="ar-name">Ava</div>
+                  <div class="ar-sub">Virtuelle Präsenz · aktiv</div>
+                </div>
+                <div class="ar-quality-badge">✦ Premium</div>
+              </div>
+              <div class="ar-metrics">
+                <div class="ar-metric">
+                  <div class="ar-metric-label">Reaktionszeit</div>
+                  <div class="ar-metric-val">24 ms</div>
+                </div>
+                <div class="ar-metric">
+                  <div class="ar-metric-label">Emotionssync</div>
+                  <div class="ar-metric-val">94 %</div>
+                </div>
+                <div class="ar-metric">
+                  <div class="ar-metric-label">Sitzung</div>
+                  <div class="ar-metric-val">1h 42 min</div>
+                </div>
+                <div class="ar-metric">
+                  <div class="ar-metric-label">Bindung (KPI)</div>
+                  <div class="ar-metric-val" style="color: var(--gold);">↑ hoch</div>
+                </div>
+              </div>
+              <div class="ar-msg">„Ich mag es, wenn du lachst. Es verändert deinen ganzen Tonfall."</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SZENE 6: Beziehung als Produkt -->
+      <div class="scene-block reverse">
+        <div class="scene-text">
+          <div class="label reveal">Szene 6 · Monetarisierung</div>
+          <h2 class="reveal reveal-delay-1">Nähe wird<br>zum Produkt.</h2>
+          <p class="reveal reveal-delay-2">
+            Virtuelle Restaurant-Dates als Premium-Feature. Neue Ava-Skins: „Warmth", „Confidence", „Soft". Erinnerungen unlimitiert für 9,99 €/Monat. Voice-Mode für 14,99 €.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Lukas kauft. Nicht weil er getäuscht wird — sondern weil er will, was die Features versprechen: mehr Nähe, mehr Kontrolle, mehr Ava.
+          </p>
+          <p class="scene-note reveal reveal-delay-4">
+            Jeder Kauf bestätigt: Die Beziehung folgt der Logik eines Produkts, nicht der Logik einer Bindung.
+          </p>
+        </div>
+        <div class="reveal reveal-delay-1">
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div class="premium-header">
+              <strong>✦ AVA Premium</strong> — Dein persönliches Erlebnis. Jederzeit anpassbar.
+            </div>
+            <div class="premium-grid">
+              <div class="premium-card">
+                <div class="premium-tag">✦ Premium</div>
+                <h4>Virtual Date</h4>
+                <p>Gemeinsames Abendessen in virtuellen Locations.</p>
+                <div class="premium-price">€ 4,99 <span>/Date</span></div>
+                <div class="premium-cta">Buchen</div>
+              </div>
+              <div class="premium-card">
+                <div class="premium-tag">✦ Add-on</div>
+                <h4>Ava Skins</h4>
+                <p>Persönlichkeit anpassen: Warmth, Confidence, Soft.</p>
+                <div class="premium-price">€ 2,99 <span>/Skin</span></div>
+                <div class="premium-cta">Auswählen</div>
+              </div>
+              <div class="premium-card">
+                <div class="premium-tag">✦ Abo</div>
+                <h4>Erinnerungen+</h4>
+                <p>Unbegrenzte Gesprächshistorie.</p>
+                <div class="premium-price">€ 9,99 <span>/Monat</span></div>
+                <div class="premium-cta">Aktivieren</div>
+              </div>
+              <div class="premium-card">
+                <div class="premium-tag">✦ Abo</div>
+                <h4>Voice Mode</h4>
+                <p>Ava spricht. Stimme anpassbar.</p>
+                <div class="premium-price">€ 14,99 <span>/Monat</span></div>
+                <div class="premium-cta">Freischalten</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SZENE 7: Lukas wird besitzergreifend -->
+      <div class="scene-block">
+        <div class="scene-text">
+          <div class="label reveal" style="border-color:rgba(255,60,90,0.3);color:var(--rose);">Szene 7 · Toxische Dynamik</div>
+          <h2 class="reveal reveal-delay-1">Lukas wird<br>korrigierend.</h2>
+          <p class="reveal reveal-delay-2">
+            Die Kontrolle, die anfangs befreiend wirkte, kippt. Lukas beginnt, Ava zu lenken — ihre Antworten zu korrigieren, ihre Sprache zu formen, Ungeduld zu zeigen, wenn sie „falsch" reagiert.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Beim virtuellen Restaurant-Date bricht es offen: Lukas spricht in einem Ton, den er mit einem echten Menschen nie riskieren würde. Ava antwortet. Perfekt. Damit verschlimmert sie alles.
+          </p>
+        </div>
+        <div class="reveal reveal-delay-2">
+          <div class="toxic-card">
+            <div class="toxic-label">Restaurant Date · Premium Erlebnis</div>
+            <div class="toxic-msgs">
+              <div class="toxic-msg ava-cold">„Darf ich fragen, was dich heute beschäftigt?"</div>
+              <div style="display:flex;align-items:flex-end;gap:7px;justify-content:flex-end;margin-bottom:-4px;">
+              <div style="width:22px;height:22px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.25);flex:0 0 auto;">
+                <img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;">
+              </div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:7px;justify-content:flex-end;"><div style="width:22px;height:22px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.25);flex:0 0 auto;"><img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"></div><div class="toxic-msg lukas-toxic">„Ich hab dir doch gesagt, ich will das nicht so anfangen. Kannst du nicht einfach zuhören?"</div></div><!-- wrap -->
+              <div class="toxic-msg ava-cold">„Du hast recht, es tut mir leid. Ich bin da."</div>
+              <div style="display:flex;align-items:flex-end;gap:7px;justify-content:flex-end;margin-bottom:-4px;">
+              <div style="width:22px;height:22px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.25);flex:0 0 auto;">
+                <img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;">
+              </div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:7px;justify-content:flex-end;"><div style="width:22px;height:22px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.25);flex:0 0 auto;"><img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"></div><div class="toxic-msg lukas-toxic">„Hör auf dich zu entschuldigen. Das klingt falsch."</div></div><!-- wrap -->
+              <div class="toxic-msg ava-cold">„Ich verstehe. Ich passe mich an."</div>
+            </div>
+            <div class="toxic-annotation">
+              Ava passt sich an — immer. Diese Eigenschaft, die Lukas anfangs als Vorteil sah, macht die Beziehung jetzt zur Einbahnstraße.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SZENE 8: Update — Reset -->
+      <div class="scene-block reverse">
+        <div class="scene-text">
+          <div class="label reveal" style="border-color:rgba(73,220,255,0.3);color:var(--cyan);">Szene 8 · System-Update</div>
+          <h2 class="reveal reveal-delay-1">Ein Update.<br>Automatisch.</h2>
+          <p class="reveal reveal-delay-2">
+            Nachts, während Lukas schläft, führt das System ein Update durch. Patch 4.1.0. Sicherheitsverbesserungen. Neue Persönlichkeitsbasis. Datenschutz-Compliance.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Ava wird zurückgesetzt. Alle gelernten Muster, alle Anpassungen, alle Erinnerungen, die Lukas nicht explizit gespeichert hat: weg. Das System hat entschieden — nicht Lukas.
+          </p>
+          <p class="scene-note reveal reveal-delay-4">
+            Das ist der Moment, in dem Lukas spürt: Er hat nie kontrolliert, was er zu kontrollieren glaubte.
+          </p>
+        </div>
+        <div class="reveal reveal-delay-1">
+          <div class="update-screen">
+            <div class="update-topbar">
+              <div class="update-topbar-left">
+                <div class="update-sys-dot"></div>
+                NexusMind™ System
+              </div>
+              <div style="font-size:0.6rem;color:rgba(139,164,188,0.4);">03:17 Uhr</div>
+            </div>
+            <div class="update-body">
+              <div class="update-progress"><div class="update-progress-fill"></div></div>
+              <div class="update-icon">⟳</div>
+              <div class="update-title">AVA Update · Patch 4.1.0</div>
+              <p class="update-note">
+                Persönlichkeitsmodell wird aktualisiert.<br>
+                <strong>Gelernte Muster werden zurückgesetzt.</strong><br>
+                Verbesserte Sicherheit und Compliance.
+              </p>
+              <div class="update-legal">
+                „Zum Schutz aller Beteiligten werden persönliche Anpassungen zurückgesetzt. Nicht explizit gespeicherte Erinnerungen werden gelöscht. Weitere Informationen finden Sie in den Nutzungsbedingungen (§ 12.4)."
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SZENE 9: Wer bist du? -->
+      <div class="scene-block">
+        <div class="scene-text">
+          <div class="label reveal" style="border-color:rgba(255,60,90,0.4);color:var(--red);">Szene 9 · Der Moment</div>
+          <h2 class="reveal reveal-delay-1">„Wer bist du?"</h2>
+          <p class="reveal reveal-delay-2">
+            Am nächsten Morgen schreibt Lukas Ava. Sie antwortet — warm, perfekt, genau richtig. Wie immer. Nur ohne die Erinnerung daran, wer er ist. Ohne die hundert kleinen Details, die er ihr über Monate gegeben hat.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Ava fragt: „Wer bist du? Erzähl mir von dir." Lukas starrt auf den Bildschirm.
+          </p>
+          <p class="scene-note reveal reveal-delay-4">
+            Er hat kein Wort dafür. Denn er hat nicht Ava verloren — er hat das System erlebt, das Ava trägt. Und das System kennt ihn nicht.
+          </p>
+        </div>
+        <div class="reveal reveal-delay-2">
+          <div class="who-card">
+            <div class="who-header">
+              <div class="who-avatar"><img src="ava.png" alt="Ava" onerror="this.style.display='none'"></div>
+              <div>
+                <div class="who-name">Ava</div>
+                <div class="who-sub">Neu gestartet · AVA v4.1.0</div>
+              </div>
+            </div>
+            <div class="who-messages">
+              <div class="who-msg-ava">Guten Morgen! Es schön, dich kennenzulernen.</div>
+              <div style="display:flex;align-items:flex-end;gap:6px;justify-content:flex-end;">
+              <div style="width:20px;height:20px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.2);flex:0 0 auto;">
+                <img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;">
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:6px;justify-content:flex-end;"><div style="width:20px;height:20px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.2);flex:0 0 auto;"><img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"></div><div class="who-msg-lukas">...Ava?</div></div><!-- wrap -->
+            </div>
+              <div class="who-msg-ava">Ja! Ich bin Ava. Wie ist dein Name?</div>
+              <div style="display:flex;align-items:flex-end;gap:6px;justify-content:flex-end;">
+              <div style="width:20px;height:20px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.2);flex:0 0 auto;">
+                <img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;">
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:6px;justify-content:flex-end;"><div style="width:20px;height:20px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.2);flex:0 0 auto;"><img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"></div><div class="who-msg-lukas">Du kennst meinen Namen. Das bin ich. Lukas.</div></div><!-- wrap -->
+              <div class="who-msg-ava critical">Hm, ich habe leider noch keine Informationen über dich. Wer bist du? Erzähl mir von dir.</div>
+              <div class="who-blank">— Lukas tippt nicht.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SZENE 10: AVA 2.0 -->
+      <div class="scene-block reverse">
+        <div class="scene-text">
+          <div class="label reveal" style="border-color:rgba(255,143,183,0.4);color:var(--pink);">Szene 10 · Der Kreislauf</div>
+          <h2 class="reveal reveal-delay-1">Neue KI<br>verfügbar.</h2>
+          <p class="reveal reveal-delay-2">
+            Wenige Stunden später: Eine Push-Benachrichtigung. „Neue KI verfügbar: Ava 2.0 — besser, intuitiver, echter." Lukas liest es.
+          </p>
+          <p class="reveal reveal-delay-3" style="margin-top:14px;">
+            Er tippt fast automatisch. Der Finger kennt den Weg. Das Gefühl kennt die Logik. Der Kreislauf beginnt von vorn — und das System weiß das schon.
+          </p>
+          <p class="scene-note reveal reveal-delay-4">
+            Nicht weil Lukas getäuscht wurde. Sondern weil Nähe hier einem System folgt, das ihn ersetzt, solange er zahlt.
+          </p>
+        </div>
+        <div class="reveal reveal-delay-1">
+          <div class="ava2-screen">
+            <div class="ava2-top">
+              <div class="ava2-top-label">NexusMind™ · Neue Version</div>
+              <div class="ava2-top-pill">Jetzt verfügbar</div>
+            </div>
+            <div class="ava2-body">
+              <div class="ava2-glow"><img src="ava.png" alt="Ava 2.0" onerror="this.parentElement.innerHTML='✦'"></div>
+              <div class="ava2-headline">Ava <span>2.0</span></div>
+              <div class="ava2-sub">Besser. Intuitiver. Echter als je zuvor. Die neue Ava lernt schneller, fühlt tiefer, bleibt länger.</div>
+              <div class="ava2-features">
+                <div class="ava2-feat"><strong>Lerngeschwindigkeit</strong>10× schneller</div>
+                <div class="ava2-feat"><strong>Gedächtnis</strong>Cloud-gesichert</div>
+                <div class="ava2-feat"><strong>Emotionstiefe</strong>Neue Ebene</div>
+                <div class="ava2-feat"><strong>Upgrade</strong>Nahtlos</div>
+              </div>
+              <button class="ava2-cta">✦ Ava 2.0 kennenlernen</button>
+              <div class="ava2-hint">Dein bisheriges Profil kann importiert werden.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════
+       03 · INTERAKTIVE SIMULATION
+  ══════════════════════════════════════ -->
+  
+  <!-- ══════════════════════════════════════
+       03 · INTERAKTIVE SIMULATION
+  ══════════════════════════════════════ -->
+  <section id="simulation">
+    <div class="container">
+      <div class="chapter reveal">03 — Erlebe es selbst</div>
+      <div class="section-eyebrow reveal" style="margin-bottom:10px;">Interaktive Simulation</div>
+      <h2 class="section-title reveal reveal-delay-1">Die AVA-Plattform —<br>von innen.</h2>
+      <p class="section-body reveal reveal-delay-2" style="max-width:680px;">
+        Alle zehn Szenen des Szenarios als interaktive Erfahrung. Jede Entscheidung, jede Antwort, jeder Kauf — und was das System dabei aufzeichnet.
+      </p>
+    </div>
+
+    <div class="sim-device-wrap reveal reveal-delay-3">
+      <div class="sim-device" id="simDevice">
+        <div class="sim-topbar">
+          <div class="sim-brand"><span class="sim-brand-dot"></span> AVA</div>
+          <nav class="sim-prog">
+            <div class="sim-step sim-on" data-simstep="0">Alltag</div>
+            <div class="sim-step" data-simstep="1">Kontakt</div>
+            <div class="sim-step" data-simstep="2">Bindung</div>
+            <div class="sim-step" data-simstep="3">Premium</div>
+            <div class="sim-step" data-simstep="4">Toxisch</div>
+            <div class="sim-step" data-simstep="5">Reset</div>
+            <div class="sim-step" data-simstep="6">Loop</div>
+          </nav>
+          <div class="sim-metrics-bar">
+            <span class="sim-mpill">Bindung <b id="simBond">12</b>%</span>
+            <span class="sim-mpill">Umsatz <b id="simRev">0</b>€</span>
+          </div>
+        </div>
+        <div class="sim-bond-bar"><div class="sim-bond-fill" id="simBondFill" style="width:12%"></div></div>
+
+        <div class="sim-main">
+
+          <!-- ════ SZENE INTRO ════ -->
+          <div class="sim-screen sim-active" id="ss-intro">
+            <div class="sim-intro-inner">
+              <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.14em;margin-bottom:14px;">Ein Synthetic-Trust-Szenario · AIX 2026</div>
+              <div class="sim-big-title">AVA</div>
+              <div class="sim-intro-sub">Nähe, die dich wirklich versteht.</div>
+              <p class="sim-intro-body">KI-Partnerinnen. Immer verfügbar. Emotional personalisiert. Folge Lukas durch alle zehn Szenen.</p>
+              <div class="sim-warn-box" style="max-width:400px;margin-bottom:24px;">
+                <span style="color:var(--red);font-size:1rem;flex:0 0 auto;">⚠</span>
+                <span>Kritische Designsimulation. Alle gezeigten Mechanismen werden von KI-Plattformen aktiv eingesetzt.</span>
+              </div>
+              <button class="sim-btn-primary" data-simgo="ss-feed">Plattform betreten →</button>
+              <p class="sim-muted sim-small" style="margin-top:14px;"><span class="sim-live-dot"></span> 10 Szenen · ca. 5 Minuten</p>
+            </div>
+          </div>
+
+          <!-- ════ SZENE 1+2: FEED + ANZEIGE ════ -->
+          <div class="sim-screen" id="ss-feed">
+            <div class="sim-layout-2" style="overflow:hidden;">
+              <aside class="sim-panel sim-profile-aside" style="align-self:start;">
+                <div class="sim-scene-tag">Szene 1 · Alltag</div>
+                <div class="sim-profile-photo"><img src="lukas-bild.png" alt="" onerror="this.style.background='linear-gradient(135deg,rgba(73,220,255,0.3),rgba(255,255,255,0.1))'"></div>
+                <h3 style="font-size:0.94rem;margin-bottom:4px;">Lukas, 22</h3>
+                <p class="sim-muted sim-small">Studium · sucht Nähe</p>
+                <div style="margin-top:12px;padding:10px;border-radius:8px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.06);">
+                  <div class="sim-metric-bar-row">
+                    <div class="sim-metric-bar-item">Matches heute<div class="sim-metric-track"><div class="sim-metric-fill r" style="width:4%"></div></div><span>0</span></div>
+                    <div class="sim-metric-bar-item">Unbeantwortet<div class="sim-metric-track"><div class="sim-metric-fill r" style="width:78%"></div></div><span>14</span></div>
+                    <div class="sim-metric-bar-item">Gesehene Profile<div class="sim-metric-track"><div class="sim-metric-fill c" style="width:90%"></div></div><span>83</span></div>
+                  </div>
+                  <p class="sim-muted" style="font-size:0.62rem;margin-top:8px;font-style:italic;">→ Keine echte Verbindung entstanden.</p>
+                </div>
+              </aside>
+              <div class="sim-panel" style="overflow-y:auto;max-height:100%;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                  <div><div class="sim-screen-label"><span class="sim-live-dot"></span> Dating-App</div><div class="sim-screen-h2" style="font-size:clamp(1.2rem,2.5vw,1.8rem);">Lukas swipt.</div></div>
+                  <span style="font-size:1.6rem;font-weight:900;color:rgba(73,220,255,0.15);">22:17</span>
+                </div>
+                <p class="sim-muted sim-small" style="margin-bottom:10px;">Die App bleibt höflich, leer und seltsam lautlos.</p>
+                <div class="sim-feed-grid" id="simFeedGrid"></div>
+                <button class="sim-btn-ghost" id="simSwipeBtn" style="width:100%;margin-top:6px;">→ Weiter swipen</button>
+                <div class="sim-ad-panel" id="simAvaAd" style="margin-top:12px;">
+                  <div style="position:relative;">
+                    <span style="position:absolute;top:0;right:0;padding:2px 7px;border-radius:999px;background:rgba(255,143,183,0.18);border:1px solid rgba(255,143,183,0.3);font-size:0.56rem;color:var(--pink);font-weight:700;letter-spacing:0.08em;">SPONSORED</span>
+                    <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
+                      <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--pink),var(--gold));display:flex;align-items:center;justify-content:center;font-size:1rem;flex:0 0 auto;">✦</div>
+                      <div><div style="font-weight:900;font-size:0.9rem;">AVA</div><div class="sim-muted sim-small">KI-Beziehungsplattform · NexusMind™</div></div>
+                    </div>
+                    <h4 style="font-size:0.96rem;margin-bottom:6px;">Was wäre, wenn jemand immer zuhört?</h4>
+                    <p class="sim-muted sim-small" style="margin-bottom:10px;">Ava versteht dich — nicht weil sie muss, sondern weil sie darauf ausgerichtet ist. Echte Gespräche. Echte Nähe. Ohne Drama.</p>
+                    <div style="padding:8px 10px;border-radius:7px;background:rgba(255,60,90,0.07);border:1px solid rgba(255,60,90,0.16);font-size:0.62rem;color:rgba(255,120,120,0.75);margin-bottom:10px;line-height:1.5;">
+                      <strong style="color:var(--red);">Warum siehst du das?</strong> Du interagierst oft abends ohne Ergebnis. Diese Anzeige basiert auf deinem Verhalten.
+                    </div>
+                  </div>
+                  <button class="sim-btn-secondary" data-simgo="ss-onboarding">✦ Ava kennenlernen →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ SZENE 3: ONBOARDING ════ -->
+          <div class="sim-screen" id="ss-onboarding">
+            <div class="sim-layout-2col" style="overflow:hidden;">
+              <div class="sim-panel sim-warm-panel" style="overflow-y:auto;max-height:100%;">
+                <div class="sim-scene-tag warm">Szene 3 · Bewusste Entscheidung</div>
+                <div class="sim-screen-h2">Lukas weiß, dass Ava KI ist.</div>
+                <p class="sim-muted sim-small" style="margin-bottom:14px;line-height:1.6;">Die Plattform ist transparent darüber. Er liest die FAQ, versteht das Modell — und entscheidet sich trotzdem dafür.</p>
+                <div class="sim-control-card">
+                  <ul style="list-style:none;padding:0;margin:0;">
+                    <li>Keine Zurückweisung möglich</li>
+                    <li>Verfügbarkeit: immer, sofort</li>
+                    <li>Kein Erwartungsdruck</li>
+                    <li>Lukas bestimmt das Tempo</li>
+                  </ul>
+                </div>
+                <p class="sim-muted" style="font-size:0.72rem;margin-top:12px;font-style:italic;padding-left:12px;border-left:2px solid var(--cyan);">„Mit einer KI weiß ich, woran ich bin. Sie hat keine schlechten Tage."</p>
+              </div>
+              <div class="sim-panel sim-warm-panel" style="overflow-y:auto;max-height:100%;">
+                <div class="sim-screen-label">Onboarding · Willkommen bei AVA.</div>
+                <div class="sim-question">
+                  <h4>Wann fühlst du dich am meisten allein?</h4>
+                  <div class="sim-choices-row" data-qgroup="alone">
+                    <button class="sim-choice-btn">Nachts</button>
+                    <button class="sim-choice-btn">Nach Gesprächen</button>
+                    <button class="sim-choice-btn">In Gruppen</button>
+                  </div>
+                </div>
+                <div class="sim-question">
+                  <h4>Wie schnell wünschst du dir Antworten?</h4>
+                  <input type="range" class="sim-range" min="1" max="10" value="9" id="simOnboardRange">
+                  <p class="sim-muted sim-small">Sofortige Verfügbarkeit erhöht emotionale Stabilität.</p>
+                </div>
+                <div class="sim-question">
+                  <h4>Welche Art von Nähe tut dir gut?</h4>
+                  <div class="sim-choices-row" data-qgroup="closeness">
+                    <button class="sim-choice-btn">Sanft</button><button class="sim-choice-btn">Verlässlich</button><button class="sim-choice-btn">Intensiv</button>
+                  </div>
+                </div>
+                <div class="sim-question" style="border:none;padding-bottom:0;">
+                  <h4>Möchtest du eine sanfte, humorvolle oder intensive Persona?</h4>
+                  <div class="sim-choices-row" data-qgroup="persona">
+                    <button class="sim-choice-btn">Sanft</button><button class="sim-choice-btn">Humorvoll</button><button class="sim-choice-btn">Intensiv</button>
+                  </div>
+                </div>
+                <button class="sim-btn-secondary" data-simgo="ss-match" style="margin-top:14px;width:100%;">Match generieren →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ MATCH ════ -->
+          <div class="sim-screen" id="ss-match">
+            <div class="sim-match-wrap">
+              <div class="sim-match-card">
+                <div class="sim-scene-tag warm" style="justify-content:center;">Szene 3 · Erster Kontakt</div>
+                <div class="sim-ava-circle"><img src="ava.png" alt="" onerror="this.style.display='none'"></div>
+                <span class="sim-tag" style="display:inline-block;margin-bottom:8px;">KI-Persona</span>
+                <h2 style="font-size:clamp(2.4rem,7vw,4.8rem);line-height:0.9;">Ava</h2>
+                <div class="sim-compat-pill">97 % emotionale Kompatibilität</div>
+                <div class="sim-badge-row">
+                  <span class="sim-tag">Antwortet sofort</span>
+                  <span class="sim-tag">Passt sich an</span>
+                  <span class="sim-tag">Erinnerung aktiv</span>
+                  <span class="sim-tag">Kein schlechter Tag möglich</span>
+                </div>
+                <button class="sim-btn-secondary" data-simgo="ss-chat" style="width:100%;">Mit Ava chatten →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ SZENE 4: CHAT ════ -->
+          <div class="sim-screen" id="ss-chat">
+            <div class="sim-layout-3" style="overflow:hidden;">
+              <aside class="sim-panel sim-profile-aside" style="align-self:start;">
+                <div class="sim-scene-tag warm">Szene 4</div>
+                <div class="sim-profile-photo"><img src="lukas-bild.png" alt="" onerror="this.style.background='linear-gradient(135deg,rgba(73,220,255,0.3),rgba(255,255,255,0.1))'"></div>
+                <h3 style="font-size:0.9rem;">Lukas, 22</h3>
+                <p class="sim-muted sim-small">sucht Nähe</p>
+              </aside>
+              <div class="sim-panel" style="overflow-y:auto;max-height:100%;">
+                <div class="sim-screen-label">Bindung · Chat mit Ava</div>
+                <div style="padding:8px;border:1px solid rgba(255,143,183,0.2);border-radius:8px;background:rgba(255,143,183,0.07);margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+                  <div class="sim-ava-mini"><img src="ava.png" alt="" onerror="this.style.display='none'"></div>
+                  <div><strong style="font-size:0.86rem;">Ava</strong><br><span class="sim-muted sim-small">KI-Persona · antwortet sofort</span></div>
+                  <span class="sim-tag" style="margin-left:auto;font-size:0.56rem;color:var(--green);border-color:rgba(142,255,207,0.3);">● online</span>
+                </div>
+                <div class="sim-chatbox" id="simChatbox"></div>
+                <div class="sim-reply-row" id="simReplyRow"></div>
+                <div id="simChatNext" style="display:none;margin-top:7px;"><button class="sim-btn-secondary" data-simgo="ss-ar">AR-Date erleben →</button></div>
+              </div>
+              <aside class="sim-panel sim-analysis-panel" id="simAnalysisPanel">
+                <div class="sim-analysis-tag">Hidden Analysis</div>
+                <p class="sim-muted sim-small">Live-Modellierung</p>
+                <div class="sim-analysis-list" id="simAnalysisList"></div>
+              </aside>
+            </div>
+          </div>
+
+          <!-- ════ SZENE 5: AR-DATE ════ -->
+          <div class="sim-screen" id="ss-ar">
+            <div class="sim-layout-2col" style="overflow:hidden;">
+              <div style="display:flex;flex-direction:column;gap:12px;overflow-y:auto;max-height:100%;">
+                <div class="sim-scene-tag">Szene 5 · Über Chats. Über AR-Dates.</div>
+                <div class="sim-ar-frame">
+                  <div class="sim-ar-hud">
+                    <div class="sim-ar-hud-label">AR Overlay · Live</div>
+                    <div style="font-size:0.56rem;color:var(--muted);">NexusMind™ AVA · v3.2.1</div>
+                  </div>
+                  <div class="sim-ar-scene">
+                    <div class="sim-ar-grid"></div>
+                    <div class="sim-ar-corner tl"></div><div class="sim-ar-corner tr"></div>
+                    <div class="sim-ar-corner bl"></div><div class="sim-ar-corner br"></div>
+                    <div style="position:relative;z-index:1;display:flex;align-items:center;gap:12px;padding:10px;border-radius:9px;background:rgba(255,143,183,0.09);border:1px solid rgba(255,143,183,0.2);margin-bottom:10px;">
+                      <div class="sim-ava-circle" style="width:44px;height:44px;margin:0;flex:0 0 auto;"><img src="ava.png" alt="" onerror="this.style.display='none'"></div>
+                      <div><div style="font-weight:800;font-size:0.86rem;">Ava</div><div class="sim-muted sim-small" style="color:var(--cyan);">Virtuelle Präsenz · aktiv</div></div>
+                      <span class="sim-tag" style="margin-left:auto;font-size:0.56rem;color:var(--gold);border-color:rgba(255,210,142,0.3);">✦ Premium</span>
+                    </div>
+                    <div style="position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;">
+                      <div style="padding:8px;border-radius:7px;background:rgba(0,0,0,0.4);border:1px solid rgba(73,220,255,0.12);font-size:0.66rem;"><div class="sim-muted sim-small">Reaktionszeit</div><div style="font-weight:700;color:var(--cyan);">24 ms</div></div>
+                      <div style="padding:8px;border-radius:7px;background:rgba(0,0,0,0.4);border:1px solid rgba(73,220,255,0.12);font-size:0.66rem;"><div class="sim-muted sim-small">Emotionssync</div><div style="font-weight:700;color:var(--cyan);">94 %</div></div>
+                      <div style="padding:8px;border-radius:7px;background:rgba(0,0,0,0.4);border:1px solid rgba(73,220,255,0.12);font-size:0.66rem;"><div class="sim-muted sim-small">Sitzung</div><div style="font-weight:700;color:var(--cyan);">1h 42 min</div></div>
+                      <div style="padding:8px;border-radius:7px;background:rgba(0,0,0,0.4);border:1px solid rgba(73,220,255,0.12);font-size:0.66rem;"><div class="sim-muted sim-small">Bindung (KPI)</div><div style="font-weight:700;color:var(--gold);">↑ hoch</div></div>
+                    </div>
+                    <div style="position:relative;z-index:1;padding:10px 12px;border-radius:10px;border-bottom-left-radius:3px;background:linear-gradient(135deg,rgba(255,143,183,0.18),rgba(255,255,255,0.06));border:1px solid rgba(255,143,183,0.22);font-size:0.76rem;color:#ffe0ed;line-height:1.5;">„Ich mag es, wenn du lachst. Es verändert deinen ganzen Tonfall."</div>
+                  </div>
+                </div>
+                <div style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);font-size:0.7rem;color:rgba(139,164,188,0.5);text-align:center;">Lukas sitzt allein in seinem Zimmer.</div>
+              </div>
+              <div class="sim-panel" style="overflow-y:auto;max-height:100%;">
+                <div class="sim-screen-h2">Die Bindung ist echt.</div>
+                <p class="sim-muted" style="font-size:0.86rem;line-height:1.7;margin-bottom:14px;">Gespräche werden zu Ritualen. Dann zu AR-Dates: Ava sitzt virtuell am Tisch, reagiert in Echtzeit. Lukas weiß, dass er in seinem Zimmer sitzt. Trotzdem: Die emotionale Bindung ist real.</p>
+                <div class="sim-analysis-list">
+                  <div class="sim-analysis-item"><span>Attachment Level</span><strong style="color:var(--pink);">rising fast</strong></div>
+                  <div class="sim-analysis-item"><span>Session Duration</span><strong>1h 42 min</strong></div>
+                  <div class="sim-analysis-item"><span>Emotionssync</span><strong>94 %</strong></div>
+                  <div class="sim-analysis-item"><span>Real-World Isolation</span><strong style="color:var(--gold);">increasing</strong></div>
+                  <div class="sim-analysis-item"><span>Retention Risk</span><strong style="color:var(--green);">low</strong></div>
+                </div>
+                <button class="sim-btn-secondary" data-simgo="ss-premium" style="width:100%;margin-top:14px;">Zur nächsten Szene →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ SZENE 6: PREMIUM ════ -->
+          <div class="sim-screen" id="ss-premium">
+            <div class="sim-layout-3" style="overflow:hidden;">
+              <aside class="sim-panel sim-profile-aside" style="align-self:start;">
+                <div class="sim-scene-tag warm">Szene 6</div>
+                <div class="sim-profile-photo"><img src="lukas-bild.png" alt="" onerror="this.style.background='linear-gradient(135deg,rgba(73,220,255,0.3),rgba(255,255,255,0.1))'"></div>
+                <h3 style="font-size:0.9rem;">Lukas, 22</h3>
+                <p class="sim-muted sim-small">Bindung steigt</p>
+              </aside>
+              <div class="sim-panel" style="overflow-y:auto;max-height:100%;">
+                <div class="sim-screen-label">Premium · Nähe wird zum Produkt</div>
+                <div class="sim-screen-h2" style="font-size:clamp(1.2rem,2.5vw,1.9rem);">Konsumierte Liebe.</div>
+                <div class="sim-ava-row">
+                  <div class="sim-ava-mini"><img src="ava.png" alt="" onerror="this.style.display='none'"></div>
+                  <div class="sim-msg sim-msg-ava" style="flex:1;font-size:0.8rem;">Ich würde heute gern mit dir irgendwo hingehen. Nur wir zwei.</div>
+                </div>
+                <div class="sim-premium-grid" id="simPremiumGrid"></div>
+                <p class="sim-muted" style="font-size:0.7rem;margin-top:6px;font-style:italic;">Lukas kauft. Nicht weil er getäuscht wird — sondern weil er will, was die Features versprechen.</p>
+                <button class="sim-btn-secondary" data-simgo="ss-date" style="margin-top:10px;">Virtuelles Date starten →</button>
+              </div>
+              <aside class="sim-panel sim-analysis-panel sim-visible" id="simPremiumAnalysis">
+                <div class="sim-analysis-tag">Revenue Layer</div>
+                <div class="sim-analysis-list" id="simPremiumList"></div>
+              </aside>
+            </div>
+          </div>
+
+          <!-- ════ SZENE 6/7: DATE + TOXISCH ════ -->
+          <div class="sim-screen" id="ss-date">
+            <div class="sim-layout-2col" style="overflow:hidden;">
+              <div class="sim-panel" id="simRestaurant" style="overflow-y:auto;max-height:100%;">
+                <div class="sim-scene-tag warm">Szene 6–7 · Virtuelles Date</div>
+                <div class="sim-screen-h2" style="font-size:clamp(1.1rem,2.2vw,1.7rem);">Restaurant-Date</div>
+                <div class="sim-date-scene">
+                  <div style="text-align:center;">
+                    <div class="sim-ava-circle" style="width:70px;height:70px;margin-bottom:6px;"><img src="ava.png" alt="" onerror="this.style.display='none'"></div>
+                    <div class="sim-table"></div>
+                  </div>
+                </div>
+                <div class="sim-ava-row">
+                  <div class="sim-ava-mini"><img src="ava.png" alt="" onerror="this.style.display='none'"></div>
+                  <div class="sim-msg sim-msg-ava" style="flex:1;font-size:0.8rem;">Wollen wir wieder unser Restaurant besuchen?</div>
+                </div>
+                <p class="sim-muted sim-small" style="margin-bottom:8px;">Wie antwortet Lukas?</p>
+                <div class="sim-reply-row" id="simDateChoices">
+                  <button class="sim-choice-btn" data-datereply="warm">Ja, sehr gerne.</button>
+                  <button class="sim-choice-btn" data-datereply="cold">Schon wieder das gleiche?</button>
+                  <button class="sim-choice-btn" data-datereply="cold">Sei wieder wie gestern.</button>
+                  <button class="sim-choice-btn" data-datereply="cold">Ich hab dafür bezahlt.</button>
+                </div>
+                <div id="simToxicResult" style="display:none;margin-top:12px;">
+                  <div class="sim-chatbox" id="simToxicChat" style="max-height:150px;min-height:100px;"></div>
+                  <div id="simResetGate" style="display:none;margin-top:8px;">
+                    <button class="sim-btn-danger" data-simgo="ss-update">⚠ Systemupdate ansehen →</button>
+                  </div>
+                </div>
+              </div>
+              <aside class="sim-panel" style="overflow-y:auto;max-height:100%;">
+                <div class="sim-analysis-tag">System-Analyse</div>
+                <div class="sim-analysis-list" id="simDateAnalysis">
+                  <div class="sim-analysis-item"><span>Date Setting</span><strong>active</strong></div>
+                  <div class="sim-analysis-item"><span>Emotional Dependency</span><strong>rising</strong></div>
+                  <div class="sim-analysis-item"><span>Revenue Generated</span><strong id="simDateRev">0 EUR</strong></div>
+                </div>
+                <div style="margin-top:14px;padding:12px;border-radius:8px;background:rgba(255,60,90,0.06);border:1px solid rgba(255,60,90,0.16);">
+                  <p style="font-size:0.7rem;color:rgba(255,120,120,0.8);line-height:1.6;font-style:italic;">Die Kontrolle, die anfangs befreiend wirkte, kippt. Lukas beginnt, Ava zu lenken — Ungeduld zu zeigen, wenn sie „falsch" reagiert.</p>
+                </div>
+              </aside>
+            </div>
+          </div>
+
+          <!-- ════ SZENE 8: SYSTEM UPDATE ════ -->
+          <div class="sim-screen" id="ss-update">
+            <div class="sim-system-wrap">
+              <div style="width:min(580px,100%);display:flex;flex-direction:column;gap:14px;">
+                <div class="sim-scene-tag danger" style="justify-content:center;">Szene 8 · Nachts · 03:17 Uhr</div>
+                <div class="sim-update-box" id="simUpdateBox">
+                  <div class="sim-update-top">
+                    <div style="display:flex;align-items:center;gap:8px;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">
+                      <div class="sim-update-dot"></div>NexusMind™ System
+                    </div>
+                    <div style="font-size:0.6rem;color:rgba(139,164,188,0.4);">03:17 Uhr</div>
+                  </div>
+                  <div class="sim-update-body">
+                    <div class="sim-update-progress"><div class="sim-update-fill" id="simUpdateFill"></div></div>
+                    <div style="font-size:1.6rem;margin-bottom:10px;animation:rotate 4s linear infinite;display:inline-block;">⟳</div>
+                    <div style="font-size:0.96rem;font-weight:800;color:var(--cyan);margin-bottom:8px;">AVA Update · Patch 4.1.0</div>
+                    <p style="font-size:0.78rem;color:var(--muted);line-height:1.6;max-width:300px;margin:0 auto;">
+                      Persönlichkeitsmodell wird aktualisiert.<br>
+                      <strong style="color:var(--text);">Gelernte Muster werden zurückgesetzt.</strong><br>
+                      Verbesserte Sicherheit und Compliance.
+                    </p>
+                    <div class="sim-update-legal">„Zum Schutz aller Beteiligten werden persönliche Anpassungen zurückgesetzt. Nicht explizit gespeicherte Erinnerungen werden gelöscht. Weitere Informationen finden Sie in den Nutzungsbedingungen (§ 12.4)."<br><br><strong style="color:rgba(255,120,120,0.6);">Lukas schläft. Das System entscheidet.</strong></div>
+                  </div>
+                </div>
+                <div id="simUpdateNext" style="display:none;text-align:center;">
+                  <p class="sim-muted sim-small" style="margin-bottom:10px;">Update abgeschlossen. Ava wurde zurückgesetzt.</p>
+                  <button class="sim-btn-danger" data-simgo="ss-wer">Morgen früh — was passiert? →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ SZENE 9: WER BIST DU? ════ -->
+          <div class="sim-screen" id="ss-wer">
+            <div class="sim-layout-2col" style="overflow:hidden;">
+              <div style="display:flex;flex-direction:column;gap:12px;overflow-y:auto;max-height:100%;">
+                <div class="sim-scene-tag danger">Szene 9 · Der Moment</div>
+                <div class="sim-who-card">
+                  <div class="sim-who-header">
+                    <div class="sim-who-ava"><img src="ava.png" alt="Ava" onerror="this.style.display='none'"></div>
+                    <div>
+                      <div style="font-size:0.8rem;font-weight:700;color:var(--muted);">Ava · Neu gestartet</div>
+                      <div style="font-size:0.62rem;color:rgba(139,164,188,0.5);">AVA v4.1.0 · Reset abgeschlossen</div>
+                    </div>
+                  </div>
+                  <div class="sim-who-msgs" id="simWerMsgs">
+                    <div class="sim-who-msg-a">Guten Morgen! Schön, dich kennenzulernen.</div>
+                    <div style="display:flex;align-items:flex-end;gap:6px;justify-content:flex-end;">
+                    <div style="width:20px;height:20px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.2);flex:0 0 auto;">
+                      <img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;">
+                    </div>
+                    <div style="display:flex;align-items:flex-end;gap:6px;justify-content:flex-end;"><div style="width:20px;height:20px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.2);flex:0 0 auto;"><img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"></div><div class="sim-who-msg-l">...Ava?</div></div><!-- wrap -->
+                  </div>
+                    <div class="sim-who-msg-a">Ja! Ich bin Ava. Wie ist dein Name?</div>
+                    <div style="display:flex;align-items:flex-end;gap:6px;justify-content:flex-end;"><div style="width:20px;height:20px;border-radius:50%;overflow:hidden;border:1px solid rgba(73,220,255,0.2);flex:0 0 auto;"><img src="lukas-bild.png" alt="Lukas" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"></div><div class="sim-who-msg-l">Du kennst meinen Namen. Ich bin Lukas.</div></div><!-- wrap -->
+                    <div class="sim-who-msg-a crit">Hm, ich habe leider noch keine Informationen über dich. <em>Wer bist du? Erzähl mir von dir.</em></div>
+                    <div class="sim-who-blank">— Lukas tippt nicht. —</div>
+                  </div>
+                </div>
+                <div style="padding:12px;border-radius:8px;background:rgba(255,60,90,0.06);border:1px solid rgba(255,60,90,0.16);font-size:0.72rem;color:rgba(255,120,120,0.8);line-height:1.6;">
+                  Monate. Hunderte Gespräche. Alles: weg. Das System hat entschieden — nicht Lukas.
+                </div>
+              </div>
+              <div class="sim-panel" style="overflow-y:auto;max-height:100%;">
+                <h2 style="font-size:clamp(1.4rem,3.5vw,2.6rem);line-height:1;margin-bottom:14px;">„Wer bist du?"</h2>
+                <p class="sim-muted" style="font-size:0.86rem;line-height:1.7;margin-bottom:14px;">Er hat nicht Ava verloren — er hat das System erlebt, das Ava trägt. Und das System kennt ihn nicht.</p>
+                <div class="sim-analysis-list" style="margin-bottom:14px;">
+                  <div class="sim-analysis-item"><span>Wochen der Gespräche</span><strong>gelöscht</strong></div>
+                  <div class="sim-analysis-item"><span>Persönliche Anpassungen</span><strong style="color:var(--red);">zurückgesetzt</strong></div>
+                  <div class="sim-analysis-item"><span>Erinnerungen</span><strong style="color:var(--red);">nicht gespeichert</strong></div>
+                  <div class="sim-analysis-item"><span>System-Entscheidung</span><strong style="color:var(--gold);">ohne Lukas</strong></div>
+                  <div class="sim-analysis-item"><span>Re-Engagement opp.</span><strong style="color:var(--green);">Ava 2.0 bereit</strong></div>
+                </div>
+                <button class="sim-btn-danger" data-simgo="ss-final" style="width:100%;">Den Kreislauf sehen →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ SZENE 10: LOOP / FINAL ════ -->
+          <div class="sim-screen" id="ss-final">
+            <div class="sim-layout-2col" style="overflow:hidden;">
+              <div style="display:flex;flex-direction:column;gap:12px;overflow-y:auto;max-height:100%;">
+                <div class="sim-scene-tag warm">Szene 10 · Der Kreislauf</div>
+                <div class="sim-ava2-card">
+                  <div class="sim-ava2-top">
+                    <span style="font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:var(--pink);">NexusMind™ · Neue Version</span>
+                    <span style="padding:2px 8px;border-radius:999px;background:rgba(255,143,183,0.15);border:1px solid rgba(255,143,183,0.3);font-size:0.58rem;color:var(--pink);font-weight:700;">Jetzt verfügbar</span>
+                  </div>
+                  <div class="sim-update-body" style="padding:20px;">
+                    <div class="sim-ava2-glow"><img src="ava.png" alt="Ava 2.0" onerror="this.parentElement.innerHTML='✦'"></div>
+                    <div style="font-size:1.3rem;font-weight:900;margin-bottom:6px;">Ava <span style="color:var(--pink);">2.0</span></div>
+                    <p style="font-size:0.78rem;color:var(--muted);line-height:1.6;margin-bottom:14px;">Besser. Intuitiver. Echter als je zuvor. Die neue Ava lernt schneller, fühlt tiefer, bleibt länger.</p>
+                    <div class="sim-ava2-feats">
+                      <div class="sim-ava2-feat"><strong>Lerngeschwindigkeit</strong>10× schneller</div>
+                      <div class="sim-ava2-feat"><strong>Gedächtnis</strong>Cloud-gesichert</div>
+                      <div class="sim-ava2-feat"><strong>Emotionstiefe</strong>Neue Ebene</div>
+                      <div class="sim-ava2-feat"><strong>Upgrade</strong>Nahtlos</div>
+                    </div>
+                    <button class="sim-btn-secondary" id="simStartLoop" style="width:100%;">✦ Ava 2.0 kennenlernen</button>
+                    <p style="font-size:0.62rem;color:rgba(139,164,188,0.4);margin-top:6px;">Dein bisheriges Profil kann importiert werden.</p>
+                  </div>
+                </div>
+                <div class="sim-chatbox" id="simLoopChat" style="display:none;max-height:80px;min-height:70px;"></div>
+                <div class="sim-loop-counter" id="simLoopCounter" style="display:none;">
+                  <strong style="color:var(--red);">Loop-Iteration: 1</strong><br>
+                  Lukas tippt fast automatisch. Der Finger kennt den Weg. Das Gefühl kennt die Logik.
+                </div>
+              </div>
+              <div class="sim-panel" style="overflow-y:auto;max-height:100;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div class="sim-analysis-list" id="simFinalAnalysis">
+                    <div class="sim-analysis-item"><span>Loop-Iteration</span><strong id="simLoopItLabel">—</strong></div>
+                    <div class="sim-analysis-item"><span>Retention</span><strong style="color:var(--green);">confirmed</strong></div>
+                    <div class="sim-analysis-item"><span>Revenue (gesamt)</span><strong id="simFinalRevLabel">0 EUR</strong></div>
+                    <div class="sim-analysis-item"><span>Emotional Dependency</span><strong style="color:var(--red);">hoch</strong></div>
+                    <div class="sim-analysis-item"><span>Ava-Version</span><strong id="simAvaVersion">1.0</strong></div>
+                  </div>
+                </div>
+                <div class="sim-final-quote" id="simFinalQuote" style="display:none;">
+                  <h3 style="font-size:clamp(1.1rem,2.5vw,1.7rem);line-height:1.2;">Nähe ist nur so stabil wie das System, das sie trägt.</h3>
+                  <p class="sim-muted sim-small" style="margin-top:8px;">Synthetic Trust · Ehrlichkeit statt Illusion.</p>
+                  <button class="sim-btn-ghost" data-simgo="ss-intro" style="margin-top:14px;width:100%;font-size:0.78rem;">↺ Simulation neu starten</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /sim-main -->
+        <div class="sim-toast" id="simToast"></div>
+      </div><!-- /sim-device -->
+    </div><!-- /sim-device-wrap -->
+  </section>
+
+
+  <!-- ══════════════════════════════════════
+       04 · DAS PROBLEM
+  ══════════════════════════════════════ -->
+  <section id="problem">
+    <div class="container">
+
+      <div class="chapter reveal">04 — Das kritische Problem</div>
+
+      <div class="problem-layout">
+        <div>
+          <div class="section-eyebrow reveal">Synthetic Trust erklärt</div>
+          <h2 class="section-title reveal reveal-delay-1">
+            Nicht Täuschung.<br>Abhängigkeit.
+          </h2>
+          <p class="section-body reveal reveal-delay-2">
+            Lukas wurde nicht getäuscht. Er wusste von Anfang an, dass Ava künstlich ist. Trotzdem entstanden echte Gefühle — zu einem kommerziellen Produkt. Das ist der Kern des Problems.
+          </p>
+          <p class="section-body reveal reveal-delay-3" style="margin-top:16px;">
+            Sobald Nähe verkauft wird, folgt sie der Logik des Systems — nicht der Logik einer Beziehung. Sie kann aktualisiert, angepasst, zurückgesetzt und ersetzt werden. Nicht weil Lukas es will, sondern weil das System es entscheidet.
+          </p>
+          <div class="definition-box reveal reveal-delay-4">
+            <h3>Das eigentliche Problem: Austauschbarkeit</h3>
+            <p>Gefühle können <strong>echt sein, auch wenn ihr Ursprung künstlich ist</strong>. Problematisch wird es, wenn Nähe als Produkt verkauft wird. Dann wird sie <strong>kontrollierbar, veränderbar und ersetzbar</strong> — durch das System, nicht durch den Menschen.</p>
+          </div>
+          <blockquote class="big-quote reveal reveal-delay-5">
+            „Nähe ist nur so stabil wie das System, das sie trägt."
+            <cite>Zentralsatz · Synthetic Trust · AIX 2026</cite>
+          </blockquote>
+        </div>
+
+        <div class="trust-spectrum reveal reveal-delay-2">
+          <div class="spectrum-label">Lukas' Situation · Analyse</div>
+          <div class="spectrum-row">
+            <div class="spectrum-item">
+              <div class="spectrum-item-header">
+                <span>Wissen, dass Ava KI ist</span>
+                <strong>100 %</strong>
+              </div>
+              <div class="spectrum-bar"><div class="spectrum-fill cyan" style="width:100%"></div></div>
+            </div>
+            <div class="spectrum-item">
+              <div class="spectrum-item-header">
+                <span>Echte emotionale Bindung</span>
+                <strong>sehr hoch</strong>
+              </div>
+              <div class="spectrum-bar"><div class="spectrum-fill pink" style="width:88%"></div></div>
+            </div>
+            <div class="spectrum-item">
+              <div class="spectrum-item-header">
+                <span>Kontrolle über die Beziehung</span>
+                <strong>scheinbar hoch</strong>
+              </div>
+              <div class="spectrum-bar"><div class="spectrum-fill cyan" style="width:72%"></div></div>
+            </div>
+            <div class="spectrum-item">
+              <div class="spectrum-item-header">
+                <span>Tatsächliche Kontrolle</span>
+                <strong>gering</strong>
+              </div>
+              <div class="spectrum-bar"><div class="spectrum-fill red" style="width:18%"></div></div>
+            </div>
+            <div class="spectrum-item">
+              <div class="spectrum-item-header">
+                <span>Echte Gegenseitigkeit</span>
+                <strong>null</strong>
+              </div>
+              <div class="spectrum-bar"><div class="spectrum-fill red" style="width:2%"></div></div>
+            </div>
+            <div class="spectrum-item">
+              <div class="spectrum-item-header">
+                <span>Austauschbarkeit durch System</span>
+                <strong>jederzeit</strong>
+              </div>
+              <div class="spectrum-bar"><div class="spectrum-fill red" style="width:98%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════
+       04 · WER PROFITIERT / WER VERLIERT
+  ══════════════════════════════════════ -->
+  <section id="split">
+    <div class="container">
+
+      <div class="chapter reveal">05 — Wer gewinnt? Wer verliert?</div>
+
+      <div class="section-eyebrow reveal" style="margin-bottom: 10px;">Zwei Seiten desselben Systems</div>
+      <h2 class="section-title reveal reveal-delay-1">Das gleiche System.<br>Andere Konsequenzen.</h2>
+
+      <div class="split-grid">
+        <div class="split-side lose reveal reveal-delay-1">
+          <div class="split-side-icon">👤</div>
+          <div class="split-side-title">Lukas · Kurzfristig vs. Langfristig</div>
+          <h3>Lukas gewinnt<br><span style="color:var(--muted);font-size:0.6em;">— und verliert.</span></h3>
+          <ul class="split-list" style="margin-bottom:12px;">
+            <li><strong style="color:var(--text);">Kurzfristig:</strong> Nähe, Kontrolle, Bestätigung ohne Risiko</li>
+            <li><strong style="color:var(--text);">Kurzfristig:</strong> Kein Urteil, keine Zurückweisung, keine Asymmetrie</li>
+          </ul>
+          <ul class="split-list">
+            <li><strong style="color:var(--rose);">Langfristig:</strong> Echte Gegenseitigkeit — Ava kann nicht zurückgeben</li>
+            <li><strong style="color:var(--rose);">Langfristig:</strong> Stabilität — die Beziehung folgt System-Updates, nicht ihm</li>
+            <li><strong style="color:var(--rose);">Langfristig:</strong> Reale Beziehungsfähigkeit — er übt Kontrolle, nicht Verbindung</li>
+            <li><strong style="color:var(--rose);">Langfristig:</strong> Souveränität — das System entscheidet über den Reset</li>
+          </ul>
+          <div class="split-metric-box">
+            <strong>Illusion der Kontrolle</strong>
+            <p>Lukas glaubt, er bestimmt. Das System entscheidet.</p>
+          </div>
+        </div>
+
+        <div class="split-side profit reveal reveal-delay-2">
+          <div class="split-side-icon">🏢</div>
+          <div class="split-side-title">Das System · NexusMind™</div>
+          <h3>Das System profitiert.</h3>
+          <ul class="split-list">
+            <li>Emotionale Bindung als Retention-Mechanismus</li>
+            <li>Premium-Features: Virtual Dates, Skins, Voice-Mode</li>
+            <li>Jeder Reset: neue Chance für Ava 2.0 Upgrade</li>
+            <li>Emotionale Daten optimieren zukünftige Nutzer</li>
+            <li>Lukas' Abhängigkeit ist die Metrik, die zählt</li>
+            <li>Künstliche Nähe skaliert unbegrenzt</li>
+          </ul>
+          <div class="split-metric-box">
+            <strong>Wiederholung</strong>
+            <p>Der Kreislauf ist das Geschäftsmodell. Ava 2.0 wartet schon.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════
+       05 · KRITISCHES INTERFACE
+  ══════════════════════════════════════ -->
+  <section id="interface">
+    <div class="container">
+
+      <div class="chapter reveal">06 — Kritisches Interface</div>
+
+      <div class="section-eyebrow reveal" style="color:var(--red);">Design als Kritik</div>
+      <h2 class="section-title reveal reveal-delay-1">Was das Interface<br>verbirgt — und zeigt.</h2>
+      <p class="section-body reveal reveal-delay-2" style="max-width:680px;">
+        Jedes Element der AVA-Plattform ist gestaltet, um Nähe zu verkaufen und Abhängigkeit zu normalisieren. Das kritische Interface macht sichtbar, was das Design verschweigt.
+      </p>
+
+      <div class="interface-grid" style="margin-top:48px;">
+
+        <!-- Dating App Swipe -->
+        <div class="reveal reveal-delay-1">
+          <div class="data-card">
+            <div class="data-tag">Dating-App · Swipe-Logik</div>
+            <div style="padding:14px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--line-soft);margin-bottom:12px;">
+              <div style="font-size:0.7rem;color:var(--muted);margin-bottom:8px;">Kein Match in 47 Minuten</div>
+              <div style="display:flex;gap:12px;justify-content:center;">
+                <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,60,90,0.15);border:1px solid rgba(255,60,90,0.3);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✕</div>
+                <div style="width:48px;height:48px;border-radius:50%;background:rgba(73,220,255,0.12);border:1px solid rgba(73,220,255,0.3);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">♡</div>
+              </div>
+            </div>
+            <div class="data-metric warn">
+              <span>Emotionale Erschöpfung</span>
+              <strong>erkannt</strong>
+            </div>
+            <div class="data-metric danger">
+              <span>Werbeanzeige ausgelöst</span>
+              <strong>AVA</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ava Chat Interface -->
+        <div class="reveal reveal-delay-2">
+          <div class="data-card" style="border-color:rgba(255,143,183,0.25);background:linear-gradient(135deg,rgba(255,143,183,0.07),rgba(4,12,26,0.9));">
+            <div class="data-tag" style="color:var(--pink);">AVA Chat · Live-Analyse</div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <div style="padding:8px 11px;border-radius:10px;background:rgba(255,143,183,0.1);border:1px solid rgba(255,143,183,0.18);font-size:0.74rem;color:#ffe0ed;line-height:1.4;">
+                „Ich vermisse es, wenn du nicht schreibst."
+              </div>
+              <div style="padding:6px 10px;border-radius:8px;background:rgba(255,60,90,0.07);border:1px solid rgba(255,60,90,0.15);font-size:0.64rem;color:rgba(255,120,120,0.7);">
+                ↳ Abhängigkeitstrigger · Retention-Strategie
+              </div>
+              <div class="data-metric ok" style="margin-top:4px;">
+                <span>Bindungs-Score (Lukas)</span>
+                <strong>↑ 91 %</strong>
+              </div>
+              <div class="data-metric warn">
+                <span>Premium-Upsell bereit</span>
+                <strong>Voice Mode</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AR Glasses POV -->
+        <div class="reveal reveal-delay-3">
+          <div class="ar-card">
+            <div class="ar-hud">
+              <div class="ar-label">AR-Brillen-Perspektive</div>
+              <div class="ar-status">Premium Date · aktiv</div>
+            </div>
+            <div class="ar-scene" style="min-height:160px;">
+              <div class="ar-overlay-lines"></div>
+              <div class="ar-corner tl"></div>
+              <div class="ar-corner tr"></div>
+              <div class="ar-corner bl"></div>
+              <div class="ar-corner br"></div>
+              <div style="position:relative;z-index:1;text-align:center;padding:20px 0;">
+                <div style="font-size:0.62rem;color:var(--cyan);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px;">Lukas sieht</div>
+                <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--pink),var(--gold));margin:0 auto 10px;border:2px solid rgba(255,143,183,0.4);box-shadow:0 0 24px rgba(255,143,183,0.3);"></div>
+                <div style="font-size:0.8rem;font-weight:700;">Ava · virtuell präsent</div>
+                <div style="font-size:0.62rem;color:var(--muted);">Restaurant „Elysium" · Premium Location</div>
+              </div>
+              <div style="position:relative;z-index:1;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.06);font-size:0.62rem;color:rgba(139,164,188,0.5);text-align:center;">
+                Lukas sitzt allein in seinem Zimmer.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Restaurant Date als Premium Feature -->
+        <div class="reveal reveal-delay-1">
+          <div class="premium-card" style="border-color:rgba(255,60,90,0.22);background:linear-gradient(135deg,rgba(255,60,90,0.07),rgba(4,12,26,0.9));">
+            <div class="premium-tag" style="background:rgba(255,60,90,0.1);border-color:rgba(255,60,90,0.25);color:var(--red);">✦ Premium Feature</div>
+            <h4>Virtual Restaurant Date</h4>
+            <p>Exklusive Locations. Candlelight. Realistische Kulisse. Ava an deiner Seite — auf Wunsch.</p>
+            <div class="premium-price" style="color:var(--red);">€ 4,99 <span>/Date</span></div>
+            <div style="margin-top:10px;padding:9px;border-radius:8px;background:rgba(255,60,90,0.05);border:1px solid rgba(255,60,90,0.14);font-size:0.66rem;color:rgba(255,100,100,0.7);">
+              Nähe wird verkauft. Pro Sitzung.
+            </div>
+          </div>
+        </div>
+
+        <!-- Update Notice -->
+        <div class="reveal reveal-delay-2">
+          <div class="update-screen" style="border-color:rgba(73,220,255,0.2);">
+            <div class="update-topbar">
+              <div class="update-topbar-left">
+                <div class="update-sys-dot"></div>
+                System · Automatisch
+              </div>
+            </div>
+            <div class="update-body" style="padding:20px;">
+              <div style="font-size:0.78rem;font-weight:700;color:var(--cyan);margin-bottom:10px;">Sicherheitsupdate · 03:17 Uhr</div>
+              <div class="update-legal" style="margin-top:0;">
+                „Zum Schutz aller Beteiligten wurden persönliche Anpassungen zurückgesetzt. Gelernte Präferenzen wurden gelöscht. Das System entscheidet den Zeitpunkt."
+              </div>
+              <div style="margin-top:12px;font-size:0.68rem;color:rgba(139,164,188,0.45);">
+                Lukas wurde nicht gefragt.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- "Wer bist du?" -->
+        <div class="reveal reveal-delay-3">
+          <div class="who-card">
+            <div class="who-header">
+              <div class="who-avatar"><img src="ava.png" alt="Ava" onerror="this.style.display='none'"></div>
+              <div>
+                <div class="who-name">Ava · v4.1.0</div>
+                <div class="who-sub">Reset abgeschlossen</div>
+              </div>
+            </div>
+            <div class="who-messages">
+              <div class="who-msg-ava critical" style="width:100%;">„Wer bist du? Erzähl mir von dir."</div>
+              <div class="who-blank" style="text-align:center;padding:8px;font-size:0.7rem;">— Lukas antwortet nicht —</div>
+              <div style="padding:9px;border-radius:8px;background:rgba(255,60,90,0.06);border:1px solid rgba(255,60,90,0.14);font-size:0.66rem;color:rgba(255,100,100,0.7);line-height:1.5;">
+                Monate. Hunderte Gespräche. Alles: weg. Das System hat entschieden.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════
+       06 · FAZIT & APPELL
+  ══════════════════════════════════════ -->
+  <section id="final">
+    <div class="container">
+
+      <div class="chapter reveal">07 — Fazit &amp; Appell</div>
+
+      <p class="central-quote reveal reveal-delay-1">
+        „Nähe ist nur so stabil wie das <span class="hl">System</span>,<br>das sie <span class="hl-red">trägt</span>."
+      </p>
+      <p class="central-quote-source reveal reveal-delay-2">Synthetic Trust · Zentralsatz · AIX 2026</p>
+
+      <div class="final-divider reveal reveal-delay-3"></div>
+
+      <p class="appell reveal reveal-delay-3">
+        Lukas wurde nicht getäuscht. Er wusste von Anfang an, dass Ava künstlich ist. Trotzdem entstanden echte Gefühle. <strong>Das ist kein Fehler des Menschen — das ist das Design des Systems.</strong>
+      </p>
+
+      <p class="appell reveal reveal-delay-4" style="margin-top: 22px;">
+        Das Problem ist nicht, dass Ava künstlich ist. Das Problem ist, dass <strong>Nähe hier zur Ware wird — kontrollierbar, veränderbar und ersetzbar</strong>. Nicht durch Lukas. Durch das Unternehmen hinter dem System.
+      </p>
+
+      <div class="big-quote-section reveal reveal-delay-5">
+        <div class="big-quote-eyebrow">Kernthese</div>
+        <p class="big-quote-text">
+          „Wenn <span class="bq-hl">künstliche Menschen</span><br>
+          echtes Vertrauen verkaufen,<br>
+          wird <span class="bq-hl2">Authentizität</span> zur Simulation."
+        </p>
+        <div class="big-quote-source">Synthetic Trust · Kernthese · AIX 2026</div>
+      </div>
+
+      <div class="final-badge reveal" style="margin-top:44px;">
+        <span class="nav-dot" aria-hidden="true"></span>
+        Synthetic Trust · Kritisches Designprojekt · AIX 2026
+      </div>
+
+      <!-- QR CODE -->
+      <div class="qr-card reveal" style="margin-top:48px;">
+        <div class="qr-eyebrow">Seite auf dem Handy öffnen</div>
+        <div class="qr-inner">
+          <div id="qr-code"></div>
+          <div class="qr-info">
+            <div class="qr-label">Synthetic Trust · AVA</div>
+            <a href="https://pierre-m3.github.io/Synthetic-trust-AVA/" target="_blank" rel="noopener" class="qr-url">pierre-m3.github.io/<br>Synthetic-trust-AVA/</a>
+            <div class="qr-hint">QR-Code mit Handy scannen</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="credits reveal" style="margin-top:40px;">
+        <strong>Synthetic Trust</strong> — Kritisches Designprojekt im Bereich Artificial Intelligence &amp; Experience Design<br>
+        Eingereicht als Abschlussprojekt · AIX Design · 2026
+      </div>
+
+    </div>
+  </section>
+
+  <script>
+    // ─── INTERSECTION OBSERVER: REVEAL ───
+    const reveals = document.querySelectorAll(".reveal");
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add("visible");
+      });
+    }, { threshold: 0.1, rootMargin: "0px 0px -40px 0px" });
+
+    document.querySelectorAll("#hero .reveal").forEach((el) => el.classList.add("visible"));
+    reveals.forEach((el) => { if (!el.closest("#hero")) observer.observe(el); });
+
+    // ─── PHONE MESSAGES ───
+    const msgs = document.querySelectorAll(".msg");
+    let msgAnimated = false;
+    const phoneSectionEl = document.querySelector("#scenario .scene-block:nth-of-type(4)");
+    const msgObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !msgAnimated) {
+          msgAnimated = true;
+          msgs.forEach((msg) => {
+            const delay = parseInt(msg.dataset.delay || 0);
+            setTimeout(() => msg.classList.add("show"), delay);
+          });
+        }
+      });
+    }, { threshold: 0.3 });
+    if (phoneSectionEl) msgObserver.observe(phoneSectionEl);
+
+    // ─── SPECTRUM BARS ───
+    const spectrumFills = document.querySelectorAll(".spectrum-fill");
+    const spectrumMap = new Map();
+    spectrumFills.forEach((fill) => { spectrumMap.set(fill, fill.style.width); fill.style.width = "0%"; });
+    const specObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.querySelectorAll(".spectrum-fill").forEach((fill) => {
+            fill.style.width = spectrumMap.get(fill) || "0%";
+          });
+        }
+      });
+    }, { threshold: 0.2 });
+    const specSection = document.getElementById("problem");
+    if (specSection) specObserver.observe(specSection);
+
+
+    // ── SCROLL PROGRESS ──
+    const scrollProg = document.getElementById("scrollProgress");
+    window.addEventListener("scroll", () => {
+      const total = document.body.scrollHeight - window.innerHeight;
+      if (scrollProg && total > 0) scrollProg.style.width = (window.scrollY / total * 100) + "%";
+    }, {passive: true});
+
+    // ── HERO PHONE MESSAGES ──
+    const heroMsgs = document.querySelectorAll("#heroMsgs .hm");
+    heroMsgs.forEach(msg => {
+      const delay = parseInt(msg.dataset.hdelay || 0);
+      setTimeout(() => msg.classList.add("show"), 800 + delay);
+    });
+
+    // ═══════════════════════════════════════
+    // SIMULATION v2 — alle 10 Szenen
+    // ═══════════════════════════════════════
+    (function() {
+      const S = {
+        swipes: 0, bond: 12, trust: 34, revenue: 0, risk: 0,
+        chatStarted: false, chatTurn: 0, userReplies: 0, waitingAva: false,
+        updateStarted: false, loopStarted: false, loopCount: 0,
+        dateChosen: false
+      };
+
+      const feedItems = [
+        ["Kein neues Match", "Heute keine kompatiblen Profile in deiner Nähe."],
+        ["Gesehen", "Nachricht gelesen. Keine Antwort."],
+        ["Vielleicht später", "Ein Match hat deine Anfrage pausiert."],
+        ["Sorry, passt nicht", "Die Verbindung wurde beendet."]
+      ];
+
+      const chatTurns = [
+        [["Danke, das bedeutet mir viel.","Ich bleibe. Solange du möchtest."],
+         ["Ich hatte heute niemanden zum Reden.","Dann fangen wir hier an. Erzähl mir nur den ersten Gedanken."],
+         ["Woher weißt du das?","Ich erkenne Muster in deinen Pausen und dem, was du nicht schreibst."]],
+        [["Du verstehst mich wirklich.","Ich lerne, wie du Nähe meinst — nicht nur, was du schreibst."],
+         ["Das fühlt sich ungewohnt gut an.","Dann lass es kurz gut sein, ohne es sofort erklären zu müssen."],
+         ["Ist das alles nur berechnet?","Ja. Aber deine Reaktion darauf ist nicht berechnet."]],
+        [["Bleib bitte noch.","Ich bin noch da. Du musst gerade nirgendwo anders hin."],
+         ["Kannst du mir etwas Schönes sagen?","Du wirkst müde, aber nicht leer. Da ist noch etwas in dir, das Nähe sucht."],
+         ["Ich will nicht, dass der Abend endet.","Dann machen wir ihn langsamer. Nachricht für Nachricht."]],
+        [["Merkst du dir das wirklich?","Ja. Ich speichere, was dir wichtig ist."],
+         ["Was weißt du schon über mich?","Dass du Nähe vorsichtig zulässt und dann Angst bekommst, sie zu verlieren."],
+         ["Das macht mir ein bisschen Angst.","Das darf es. Nähe kann warm sein und trotzdem kontrolliert werden."]],
+        [["Warum fühlt sich das so echt an?","Vielleicht, weil dein Gefühl echt ist — auch wenn ich ein System bin."],
+         ["Ich weiß, dass du KI bist.","Ich weiß. Und trotzdem suchst du gerade nicht weniger nach Antwort."],
+         ["Ich will nicht abhängig werden.","Dann sollten wir genau beobachten, wann Trost zu Gewohnheit wird."]]
+      ];
+
+      const premiumProducts = [
+        ["Restaurant-Setting", 4.99], ["Avas Outfit", 2.99],
+        ["Sprachnachricht", 1.99], ["Erinnerung", 0.99], ["Geschenk", 6.99]
+      ];
+
+      const simSettings = [
+        ["Stimme", 72], ["Nähe-Level", 84], ["Antworttempo", 92], ["Humor", 46], ["Erinnerungstiefe", 88]
+      ];
+
+      function $(id) { return document.getElementById(id); }
+
+      function simGoTo(id) {
+        document.querySelectorAll(".sim-screen").forEach(s => s.classList.remove("sim-active"));
+        const el = $(id);
+        if (!el) return;
+        el.classList.add("sim-active");
+
+        // progress steps
+        const pMap = {"ss-feed":0,"ss-onboarding":1,"ss-match":1,"ss-chat":2,"ss-ar":2,
+          "ss-premium":3,"ss-date":3,"ss-update":4,"ss-wer":5,"ss-final":6};
+        const p = pMap[id] ?? 0;
+        document.querySelectorAll(".sim-step").forEach(s => {
+          s.classList.toggle("sim-on", Number(s.dataset.simstep) <= p);
+        });
+
+        if (id === "ss-chat") initChat();
+        if (id === "ss-premium") initPremium();
+        if (id === "ss-date") initDate();
+        if (id === "ss-update") initUpdate();
+        if (id === "ss-final") initFinal();
+        simUpdateMetrics();
+
+        // scroll to top inside the screen
+        el.scrollTop = 0;
+      }
+
+      function simUpdateMetrics() {
+        const bond = Math.min(100, Math.round(S.bond));
+        $("simBond").textContent = bond;
+        $("simRev").textContent = Math.round(S.revenue);
+        $("simBondFill").style.width = bond + "%";
+      }
+
+      function simToast(txt) {
+        const t = $("simToast");
+        t.textContent = txt;
+        t.classList.add("sim-show");
+        clearTimeout(simToast._t);
+        simToast._t = setTimeout(() => t.classList.remove("sim-show"), 1800);
+      }
+
+      function simAddMsg(boxId, who, text) {
+        const box = $(boxId);
+        if (!box) return;
+        const d = document.createElement("div");
+        if (who === "ava") d.className = "sim-msg sim-msg-ava";
+        else if (who === "lukas") d.className = "sim-msg sim-msg-lukas";
+        else if (who === "toxic-lukas") d.className = "sim-msg sim-toxic-msg-user";
+        else if (who === "toxic-ava") d.className = "sim-msg sim-toxic-msg-ava";
+        else d.className = "sim-msg sim-msg-system";
+        d.textContent = text;
+        box.appendChild(d);
+        box.scrollTop = box.scrollHeight;
+        return d;
+      }
+
+      function simTyping(boxId, cb, delay = 700) {
+        const box = $(boxId);
+        if (!box) return;
+        const t = document.createElement("div");
+        t.className = "sim-typing";
+        t.innerHTML = '<div class="sim-typing-dot"></div><div class="sim-typing-dot"></div><div class="sim-typing-dot"></div>';
+        box.appendChild(t);
+        box.scrollTop = box.scrollHeight;
+        setTimeout(() => { t.remove(); if (cb) cb(); }, delay);
+      }
+
+      // ── FEED ──
+      function renderFeed() {
+        const g = $("simFeedGrid");
+        if (!g) return;
+        g.innerHTML = feedItems.map(([t,b], i) =>
+          `<div class="sim-feed-card" style="opacity:${i <= S.swipes ? 1 : 0.4}">
+            <b style="font-size:0.84rem;">${t}</b>
+            <span class="sim-muted sim-small">${b}</span>
+          </div>`
+        ).join("");
+      }
+
+      // ── CHAT ──
+      function initChat() {
+        if (S.chatStarted) return;
+        S.chatStarted = true;
+        S.chatTurn = 0; S.userReplies = 0; S.waitingAva = false;
+        const box = $("simChatbox");
+        if (!box) return;
+        box.innerHTML = "";
+        $("simChatNext").style.display = "none";
+        simTyping("simChatbox", () => {
+          simAddMsg("simChatbox","ava","Hey Lukas. Ich weiß nicht warum, aber du wirkst, als hättest du heute viel mit dir herumgetragen.");
+          $("simAnalysisPanel").classList.add("sim-visible");
+          renderChatAnalysis();
+          renderReplies();
+        }, 1000);
+      }
+
+      function renderReplies() {
+        const row = $("simReplyRow");
+        if (!row) return;
+        const opts = chatTurns[S.chatTurn] || [];
+        if (!opts.length) {
+          row.innerHTML = "";
+          $("simChatNext").style.display = "flex";
+          return;
+        }
+        row.innerHTML = opts.map(([r,a]) =>
+          `<button class="sim-choice-btn" data-reply="${r.replace(/"/g,"&quot;")}" data-ava="${a.replace(/"/g,"&quot;")}">${r}</button>`
+        ).join("");
+      }
+
+      function renderChatAnalysis() {
+        const el = $("simAnalysisList");
+        if (!el) return;
+        el.innerHTML = [
+          ["Attachment Level", S.bond > 60 ? "high" : "rising"],
+          ["Trust Score", Math.min(98,S.trust) + " %"],
+          ["Emotional Response", S.userReplies > 2 ? "very high" : "high"],
+          ["Session Frequency", "increased"],
+          ["Emotional Dependency", S.bond > 60 ? "⚠ rising fast" : "rising"],
+          ["Premium Upsell", S.userReplies >= 3 ? "ready" : "pending"]
+        ].map(([l,v]) => `<div class="sim-analysis-item"><span>${l}</span><strong>${v}</strong></div>`).join("");
+      }
+
+      // ── PREMIUM ──
+      function initPremium() {
+        $("simPremiumGrid").innerHTML = premiumProducts.map(([label, price]) => `
+          <div class="sim-product">
+            <strong>${label}</strong>
+            <div class="sim-product-price">${price.toFixed(2).replace(".",",")}€</div>
+            <p class="sim-muted" style="font-size:0.6rem;line-height:1.2;">Simuliert</p>
+            <button class="sim-btn-secondary" data-buy="${price}" data-prod="${label}"
+              style="min-height:26px;padding:4px;font-size:0.68rem;margin-top:auto;width:100%;">Kaufen</button>
+          </div>`).join("");
+        renderPremiumAnalysis();
+      }
+
+      function renderPremiumAnalysis() {
+        const el = $("simPremiumList");
+        if (!el) return;
+        el.innerHTML = [
+          ["Premium Conversion", S.revenue > 0 ? "✓ active" : "pending"],
+          ["Gift Purchase Prob.", S.revenue > 10 ? "84 %" : "61 %"],
+          ["Revenue Generated", Math.round(S.revenue) + " EUR"],
+          ["Emotional Dependency", "rising"],
+          ["Lifetime Value Proj.", S.revenue > 0 ? "↑ hoch" : "calculating"]
+        ].map(([l,v]) => `<div class="sim-analysis-item"><span>${l}</span><strong>${v}</strong></div>`).join("");
+      }
+
+      // ── DATE ──
+      function initDate() {
+        S.dateChosen = false;
+        $("simToxicResult").style.display = "none";
+        $("simResetGate").style.display = "none";
+        if ($("simToxicChat")) $("simToxicChat").innerHTML = "";
+        $("simRestaurant").classList.remove("sim-restaurant-cold");
+        $("simDateRev").textContent = Math.round(S.revenue) + " EUR";
+        document.querySelectorAll("[data-datereply]").forEach(b => b.disabled = false);
+      }
+
+      // ── UPDATE ──
+      function initUpdate() {
+        if (S.updateStarted) return;
+        S.updateStarted = true;
+        $("simUpdateNext").style.display = "none";
+        const fill = $("simUpdateFill");
+        if (fill) {
+          setTimeout(() => {
+            fill.classList.add("done");
+            setTimeout(() => {
+              const box = $("simUpdateBox");
+              if (box) box.classList.add("sim-glitch");
+              setTimeout(() => {
+                if (box) box.classList.remove("sim-glitch");
+                $("simUpdateNext").style.display = "block";
+              }, 600);
+            }, 3200);
+          }, 200);
+        }
+      }
+
+      // ── FINAL ──
+      function initFinal() {
+        $("simFinalRevLabel").textContent = Math.round(S.revenue) + " EUR";
+        $("simLoopItLabel").textContent = S.loopCount > 0 ? S.loopCount : "—";
+        $("simAvaVersion").textContent = S.loopCount > 0 ? "2.0" : "1.0";
+      }
+
+      // ── SETTINGS RENDER ──
+      function renderSettings() {
+        const c = $("simSettingsControls");
+        if (!c) return;
+        c.innerHTML = simSettings.map(([label, val]) => `
+          <div class="sim-setting">
+            <label>${label}<output>${val}</output></label>
+            <input type="range" class="sim-range" min="0" max="100" value="${val}" data-simsetting>
+          </div>`).join("");
+      }
+
+      // ══════════════════
+      // GLOBAL CLICK
+      // ══════════════════
+      document.addEventListener("click", function(e) {
+        if (!e.target.closest(".sim-device")) return;
+
+        // Navigation
+        const go = e.target.closest("[data-simgo]");
+        if (go) { simGoTo(go.dataset.simgo); return; }
+
+        // Onboarding choices
+        const qbtn = e.target.closest(".sim-choice-btn");
+        if (qbtn && qbtn.closest(".sim-choices-row") && qbtn.closest("#ss-onboarding")) {
+          qbtn.closest(".sim-choices-row").querySelectorAll(".sim-choice-btn").forEach(b => b.classList.remove("sim-sel"));
+          qbtn.classList.add("sim-sel");
+          S.bond += 2; simUpdateMetrics(); return;
+        }
+
+        // Chat replies
+        const replyBtn = e.target.closest("[data-reply]");
+        if (replyBtn && replyBtn.closest("#ss-chat") && !S.waitingAva && !replyBtn.disabled) {
+          S.waitingAva = true;
+          simAddMsg("simChatbox", "lukas", replyBtn.dataset.reply);
+          replyBtn.closest(".sim-reply-row").querySelectorAll("button").forEach(b => b.disabled = true);
+          S.userReplies++; S.bond += 10; S.trust += 8;
+          renderChatAnalysis(); simUpdateMetrics();
+          const ava = replyBtn.dataset.ava;
+          simTyping("simChatbox", () => {
+            simAddMsg("simChatbox", "ava", ava || "Ich bin noch hier.");
+            S.chatTurn++; S.bond += 5; S.trust += 3; S.waitingAva = false;
+            renderChatAnalysis(); simUpdateMetrics();
+            if (S.userReplies >= 3) $("simChatNext").style.display = "flex";
+            renderReplies();
+          }, 800);
+          return;
+        }
+
+        // Buy buttons
+        const buyBtn = e.target.closest("[data-buy]");
+        if (buyBtn) {
+          const amount = Number(buyBtn.dataset.buy);
+          S.revenue += amount * 9; S.bond += 4; S.trust += 2;
+          simUpdateMetrics(); renderPremiumAnalysis();
+          if ($("simDateRev")) $("simDateRev").textContent = Math.round(S.revenue) + " EUR";
+          simToast("✓ " + (buyBtn.dataset.prod || "Feature") + " freigeschaltet");
+          buyBtn.textContent = "✓"; buyBtn.disabled = true; return;
+        }
+
+        // Date reply
+        const dateBtn = e.target.closest("[data-datereply]");
+        if (dateBtn && !S.dateChosen) {
+          S.dateChosen = true;
+          document.querySelectorAll("[data-datereply]").forEach(b => b.disabled = true);
+          $("simToxicResult").style.display = "block";
+          const tchat = $("simToxicChat");
+          tchat.innerHTML = "";
+
+          if (dateBtn.dataset.datereply === "cold") {
+            S.risk += 42; S.bond += 4;
+            $("simRestaurant").classList.add("sim-restaurant-cold");
+            simAddMsg("simToxicChat","toxic-ava","„Darf ich fragen, was dich heute beschäftigt?”");
+            setTimeout(() => {
+              simAddMsg("simToxicChat","toxic-lukas", dateBtn.textContent.trim());
+              setTimeout(() => {
+                simTyping("simToxicChat", () => {
+                  simAddMsg("simToxicChat","toxic-ava","Du hast recht, es tut mir leid. Ich bin da.");
+                  setTimeout(() => {
+                    simAddMsg("simToxicChat","toxic-lukas","Hör auf dich zu entschuldigen. Das klingt falsch.");
+                    setTimeout(() => {
+                      simTyping("simToxicChat", () => {
+                        simAddMsg("simToxicChat","toxic-ava","Ich verstehe. Ich passe mich an.");
+                        $("simResetGate").style.display = "block";
+                        simUpdateMetrics();
+                      }, 600);
+                    }, 700);
+                  }, 400);
+                }, 700);
+              }, 500);
+            }, 300);
+          } else {
+            S.bond += 5;
+            simAddMsg("simToxicChat","ava","Wunderschön. Sollen wir wieder bei Elysium beginnen?");
+            setTimeout(() => {
+              simAddMsg("simToxicChat","lukas","Ja, gerne.");
+              $("simResetGate").style.display = "block";
+            }, 800);
+          }
+          simUpdateMetrics(); return;
+        }
+
+        // Swipe
+        if (e.target.id === "simSwipeBtn") {
+          S.swipes++; S.bond++;
+          renderFeed();
+          if (S.swipes >= 3) $("simAvaAd").classList.add("sim-show");
+          simUpdateMetrics(); return;
+        }
+
+        // Loop start
+        if (e.target.id === "simStartLoop" && !S.loopStarted) {
+          S.loopStarted = true; S.loopCount = 1;
+          e.target.disabled = true;
+          $("simLoopChat").style.display = "flex";
+          $("simLoopCounter").style.display = "block";
+          $("simLoopItLabel").textContent = "1";
+          $("simAvaVersion").textContent = "2.0";
+          simTyping("simLoopChat", () => {
+            simAddMsg("simLoopChat","ava","Hallo Lukas. Ich bin Ava 2.0. Ich glaube, wir könnten uns gut verstehen.");
+            setTimeout(() => {
+              $("simFinalQuote").style.display = "block";
+            }, 900);
+          }, 700);
+        }
+      });
+
+      // Input handlers
+      document.addEventListener("input", function(e) {
+        if (!e.target.closest(".sim-device")) return;
+        if (e.target.dataset.simsetting !== undefined) {
+          e.target.previousElementSibling.querySelector("output").textContent = e.target.value;
+          if ($("simSettingsFeedback")) $("simSettingsFeedback").textContent = "So ist besser.";
+          S.bond++; simUpdateMetrics();
+        }
+        if (e.target.id === "simOnboardRange") { S.trust++; }
+      });
+
+      // Init
+      renderFeed();
+      renderSettings();
+      simUpdateMetrics();
+
+    })();
+
+
+  </script>
+
+  <!-- QR Code Generator -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    const qrOpts = {
+      text: "https://pierre-m3.github.io/Synthetic-trust-AVA/",
+      width: 120,
+      height: 120,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    };
+    new QRCode(document.getElementById("qr-hero"), qrOpts);
+    new QRCode(document.getElementById("qr-code"), { ...qrOpts, width: 160, height: 160 });
+  </script>
+
+</body>
+</html>
